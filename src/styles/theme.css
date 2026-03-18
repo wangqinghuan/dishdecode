@@ -1,0 +1,97 @@
+:root {
+  /* 调色盘：中式极简美学 */
+  --color-ink: #1a1a1b;          /* 墨黑 - 主要文字 */
+  --color-rice: #fcfaf2;         /* 宣纸白 - 背景 */
+  --color-cinnabar: #c83c23;     /* 朱砂红 - 品牌强调色 */
+  --color-stone: #949495;        /* 石青灰 - 辅助文字 */
+  --color-jade: #007d65;         /* 翠玉绿 - 安全标识 (Safe) */
+  --color-gold: #b28f3c;         /* 琥珀金 - 警告标识 (Warning) */
+  
+  /* 阴影与深度 */
+  --shadow-paper: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --border-ink: 1px solid rgba(26, 26, 27, 0.1);
+
+  /* 字体栈 */
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Georgia", serif;
+  --font-sans: "Inter", "Source Han Sans SC", "Helvetica Neue", sans-serif;
+
+  /* 间距规范 */
+  --spacing-base: 8px;
+  --radius-sm: 4px;
+  --radius-md: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-rice);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.brand-text {
+  color: var(--color-cinnabar);
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+/* 核心布局与首页样式 */
+.home-wrapper { min-height: 100vh; padding: 24px 0; display: flex; flex-direction: column; max-width: 600px; margin: 0 auto; }
+.home-header { display: flex; justify-content: space-between; align-items: center; margin: 0 20px 24px; }
+.error-bar { background: var(--color-cinnabar); color: white; padding: 10px; border-radius: 8px; margin: 0 20px 16px; font-size: 14px; text-align: center; }
+.hero-section { flex: 1; display: flex; flex-direction: column; }
+.scan-placeholder { background: white; border-radius: var(--radius-md); padding: 60px 20px; text-align: center; border: var(--border-ink); box-shadow: var(--shadow-paper); cursor: pointer; margin: 0 20px; }
+.camera-circle { background: var(--color-cinnabar); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
+.scan-placeholder h2 { font-size: 24px; margin-bottom: 8px; }
+.scan-placeholder p { color: var(--color-stone); max-width: 220px; margin: 0 auto; }
+.hidden-input { display: none; }
+.image-preview-container { position: relative; border-radius: var(--radius-md); overflow: hidden; max-height: 200px; margin: 0 20px; }
+.preview-img { width: 100%; object-fit: cover; }
+.scan-overlay { position: absolute; inset: 0; background: rgba(26, 26, 27, 0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+.scanner-line { width: 100%; height: 2px; background: var(--color-cinnabar); position: absolute; top: 0; box-shadow: 0 0 15px var(--color-cinnabar); animation: scan 2s linear infinite; }
+@keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+/* 结果列表样式：满屏极简风格 */
+.results-container { margin-top: 24px; width: 100%; }
+.results-header { display: flex; justify-content: space-between; align-items: center; margin: 0 20px 20px; }
+.controls { display: flex; gap: 12px; }
+.lang-toggle { background: var(--color-ink); color: white; border: none; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+.reset-btn { background: none; border: none; cursor: pointer; color: var(--color-stone); }
+.dish-grid { display: flex; flex-direction: column; border-top: 1px solid rgba(0,0,0,0.05); }
+.dish-card { background: white; padding: 24px 20px; border-bottom: 1px solid rgba(0,0,0,0.05); position: relative; }
+.dish-card::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; opacity: 0.8; }
+.dish-card.danger::after { background: var(--color-cinnabar); }
+.dish-card.warning::after { background: var(--color-gold); }
+.dish-card.safe::after { background: var(--color-jade); }
+
+.dish-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.dish-right { display: flex; align-items: center; gap: 10px; }
+.dish-price { font-weight: 800; color: var(--color-ink); font-size: 16px; background: #f5f5f5; padding: 2px 8px; border-radius: 4px; }
+.dish-name-cn { font-family: var(--font-serif); font-size: 17px; color: var(--color-ink); font-weight: 600; }
+.dish-card h4 { font-size: 20px; margin-bottom: 12px; line-height: 1.2; color: #444; }
+.ingredients-box { background: var(--color-rice); padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(0,0,0,0.03); }
+.label { font-size: 11px; font-weight: bold; color: var(--color-stone); text-transform: uppercase; display: block; margin-bottom: 6px; }
+.ingredients { font-size: 14px; line-height: 1.6; color: var(--color-ink); }
+.ing-item { font-weight: 500; }
+.dish-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.tag { font-size: 11px; background: #f0f0f0; padding: 4px 10px; border-radius: 12px; font-weight: 600; color: var(--color-stone); }
+
+/* 偏好设置页面样式 */
+.pref-wrapper { padding: 24px 20px; max-width: 500px; margin: 0 auto; }
+.pref-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+.pref-section { margin-bottom: 40px; }
+.tag-cloud { display: flex; flex-wrap: wrap; gap: 12px; }
+.tag-btn { background: white; border: var(--border-ink); padding: 10px 18px; border-radius: 20px; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; }
+.tag-btn.active { background: var(--color-ink); color: white; border-color: var(--color-ink); }
