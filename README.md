@@ -1,55 +1,64 @@
-# 🥢 DishDecode - AI 智能中式菜谱解码器
+# 🥢 DishDecode - AI-Powered Chinese Menu Decoder
 
-**DishDecode** 是一款专为在华外籍人士设计的 AI 菜单识别应用。通过扫描中文菜单，利用 Gemini 1.5/2.0 Flash 强大的视觉能力，即时为用户提供双语对照、配料分析及过敏风险提醒。
+**DishDecode** is a specialized web application designed for expats and travelers in China. Leveraging the advanced multimodal capabilities of Google Gemini 1.5/2.0 Flash, it instantly "decodes" Chinese-only menus into clear, bilingual lists with ingredient analysis and safety alerts.
 
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![Gemini AI](https://img.shields.io/badge/AI-Gemini_Flash-blue)
-![Tailwind CSS](https://img.shields.io/badge/Style-Minimalist-green)
+![PWA](https://img.shields.io/badge/PWA-Ready-orange)
+![Style](https://img.shields.io/badge/Style-Minimalist_Zen-green)
 
-## ✨ 核心功能
+## ✨ Core Features
 
-- **📸 智能扫描**：拍摄菜单照片，AI 自动识别所有可见菜品。
-- **🌍 中英双语**：自动翻译菜名，并在下方标注原中文名，方便与餐厅员工核对。
-- **🛡️ 过敏原提醒**：根据用户设置（如花生、海鲜过敏），自动在菜单中标记“危险（Danger）”菜品。
-- **🍱 成分解析**：不仅有菜名，还能解析核心配料（中英对照），让吃得更透明。
-- **💵 实时换算**：自动将人民币价格换算为美元，方便预算管理。
-- **🏮 极简视觉**：采用现代中式审美设计，全屏列表适配手机单手操作。
+- **📸 Intelligent Scanning**: Snap a single photo of a complex menu, and the AI extracts every dish with high precision.
+- **🌍 Bilingual Interface**: Displays the original Chinese names alongside English translations, allowing for easy verification with restaurant staff.
+- **🛡️ Allergy & Dietary Safety**: Set your profile (e.g., Peanuts, Seafood, Pork) and the app will automatically "Red-Flag" risky dishes.
+- **🍱 Ingredient Breakdown**: Go beyond just the name; see the top 3-4 key ingredients for every dish in both languages.
+- **💵 Instant Currency Conversion**: Automatically converts CNY (¥) prices to USD ($) based on real-time reference rates.
+- **🏮 Minimalist Zen Design**: A full-width, mobile-optimized list view inspired by modern Chinese aesthetics, designed for one-handed use in busy restaurants.
+- **📱 PWA Ready**: "Add to Home Screen" to use it like a native app without any installation from the App Store.
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-1. **环境准备**：
-   - 获取一个 [Google Gemini API Key](https://aistudio.google.com/app/apikey)。
-   - 确保安装了 Node.js 18+。
+### Prerequisites
+- A [Google Gemini API Key](https://aistudio.google.com/app/apikey).
+- Node.js 18+ installed on your machine.
 
-2. **本地运行**：
+### Local Development
+1. **Clone the repository**:
    ```bash
    git clone https://github.com/wangqinghuan/dishdecode.git
    cd dishdecode
+   ```
+
+2. **Install dependencies**:
+   ```bash
    npm install
    ```
 
-3. **配置变量**：
-   创建 `.env.local` 文件并添加：
+3. **Configure Environment Variables**:
+   Create a `.env.local` file in the root directory and add your key:
    ```env
-   GEMINI_API_KEY=你的API_KEY
+   GEMINI_API_KEY=your_api_key_here
    ```
 
-4. **启动开发服务器**：
+4. **Run the development server**:
    ```bash
    npm run dev
    ```
-   访问 [http://localhost:3000](http://localhost:3000) 即可开始体验。
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## 🛠️ 技术栈
+## 🛠️ Tech Stack
 
-- **Frontend**: Next.js (App Router), Lucide React
+- **Frontend**: Next.js 14 (App Router), Lucide React
 - **Backend**: Next.js API Routes (Serverless)
-- **AI Engine**: Google Gemini 1.5 Flash (Multimodal)
-- **Styling**: Vanilla CSS (Modern Minimalist Theme)
+- **AI Engine**: Google Gemini 1.5/2.0 Flash (Multimodal Vision)
+- **Styling**: Vanilla CSS with CSS Variables (Zen Minimalist Theme)
+- **Deployment**: Optimized for Vercel
 
-## 📸 预览
-
-*(在此处添加你的应用截图)*
+## 📱 PWA Support
+DishDecode is a Progressive Web App. To "install" it:
+- **On iOS (Safari)**: Tap **Share** -> **Add to Home Screen**.
+- **On Android (Chrome)**: Tap the **three-dot menu** -> **Install App**.
 
 ---
-Made with ❤️ for Expats in China.
+Made with ❤️ for the Expat Community in China.
