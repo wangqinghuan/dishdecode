@@ -1,0 +1,17 @@
+{
+  "name": "DishDecode AI Menu",
+  "short_name": "DishDecode",
+  "description": "Decode Chinese menus with AI power.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfaf2",
+  "theme_color": "#c83c23",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1046/1046857.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
