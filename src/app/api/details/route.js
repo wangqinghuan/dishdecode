@@ -13,9 +13,9 @@ export async function POST(req) {
       1. STORY: Cultural origin/naming story. (Both ${targetLang} and Chinese).
       2. METHOD: Cooking steps and key ingredients. (Both ${targetLang} and Chinese).
       3. TASTE: Flavor and texture profile. (Both ${targetLang} and Chinese).
-      4. SEARCH_TERMS: 3 keywords for image searching, separated by commas (e.g., "Kung Pao Chicken, 宫保鸡丁, Gong Bao Ji Ding").
+      4. SEARCH_TERMS: Provide one highly specific CHINESE search phrase that will return ONLY professional food/dish photos (e.g., "脆皮玻璃乳鸽 菜谱图"). Avoid generic biological terms.
 
-      Format: STORY: [Text] METHOD: [Text] TASTE: [Text] SEARCH_TERMS: [Keywords]
+      Format: STORY: [Text] METHOD: [Text] TASTE: [Text] SEARCH_TERMS: [Phrase]
     `;
 
     const result = await model.generateContent(prompt);
