@@ -218,50 +218,73 @@ function ResultsList({ results, onReset, onDishClick }) {
 function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
   const [imgUrl, setImgUrl] = useState(null);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
 
   useEffect(() => {
     async function fetchInfo() {
-      let searchQuery = dish.nameCN + " 菜谱图";
+      const cacheKey = `detail_${dish.nameCN}_${targetLang}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      // 1. 优先尝试从本地缓存读取
+      if (cached) {
+        const parsedCache = JSON.parse(cached);
+        setDetails(parsedCache.text);
+        setImgUrl(parsedCache.img);
+        return;
+      }
+
+      let searchTerms = [dish.nameEN, dish.nameCN];
+      let aiText = null;
+      let foundImg = null;
+
       try {
         const detailRes = await fetch('/api/details', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang })
         });
-        const detailData = await detailRes.json();
-        setDetails(detailData.text);
         
-        const match = detailData.text.match(/SEARCH_TERMS:\s*(.*)/i);
-        if (match?.[1]) searchQuery = match[1].trim();
-      } catch (e) {}
-
-      // 深度美食图搜索策略 (百度/豆果嗅探 + 维基备选)
-      try {
-        let foundImg = null;
-        
-        // 1. 先尝试中文百科的精美实拍 (通常比英文质量高得多)
-        const wikiRes = await fetch(`https://zh.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(dish.nameCN)}`);
-        if (wikiRes.ok) {
-          const wikiData = await wikiRes.json();
-          if (wikiData.originalimage?.source) foundImg = wikiData.originalimage.source;
+        if (detailRes.status === 429) {
+          setIsQuotaExceeded(true);
+          return;
         }
 
-        // 2. 如果没图，使用百度图片搜索嗅探 (通过公共 API 代理，通常能抓到美食网站的图)
-        if (!foundImg) {
-          const searchRes = await fetch(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&tbm=isch`, { mode: 'no-cors' });
-          // 由于 CORS 限制，实际生产中这里需要一个简单的后端 Proxy。
-          // 为了演示稳定，我们先用一种极其巧妙的维基百科模糊搜索扩展。
-          const fuzzyWiki = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(searchQuery)}&gsrlimit=1&prop=pageimages&pithumbsize=600`);
-          const fuzzyData = await fuzzyWiki.json();
-          if (fuzzyData.query?.pages) {
-            const page = Object.values(fuzzyData.query.pages)[0];
-            foundImg = page.thumbnail?.source;
+        const detailData = await detailRes.json();
+        aiText = detailData.text;
+        setDetails(aiText);
+        
+        const match = aiText.match(/SEARCH_TERMS:\s*(.*)/i);
+        if (match?.[1]) {
+          const aiTerms = match[1].split(',').map(t => t.trim());
+          searchTerms = [...new Set([...aiTerms, ...searchTerms])];
+        }
+      } catch (e) {
+        console.error("Detail AI fetch failed", e);
+      }
+
+      // 2. 搜图逻辑
+      try {
+        for (const lang of ['zh', 'en']) {
+          if (foundImg) break;
+          for (const term of searchTerms) {
+            try {
+              const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term.replace(/ /g, '_'))}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.originalimage?.source) {
+                  foundImg = data.originalimage.source;
+                  break;
+                }
+              }
+            } catch (innerE) {}
           }
         }
-        
         setImgUrl(foundImg);
-      } catch (e) {
-        console.error("Image search failed", e);
+      } catch (e) {}
+
+      // 3. 存入缓存，下次免流量
+      if (aiText) {
+        localStorage.setItem(cacheKey, JSON.stringify({ text: aiText, img: foundImg }));
       }
     }
     fetchInfo();
@@ -292,7 +315,7 @@ function DishDetail({ dish, targetLang, onClose }) {
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>Seeking authentic dish photo...</span>
+              <span>{isQuotaExceeded ? 'AI is resting...' : 'Seeking dish photo...'}</span>
             </div>
           )}
         </div>
@@ -304,7 +327,12 @@ function DishDetail({ dish, targetLang, onClose }) {
           </div>
           
           <div className="detail-body">
-            {parsed ? (
+            {isQuotaExceeded ? (
+              <div className="quota-error">
+                <p><strong>Daily limit reached.</strong></p>
+                <p>Our AI chef has cooked too many dishes today! Please try again tomorrow or use a different device.</p>
+              </div>
+            ) : parsed ? (
               <>
                 {parsed.story && <div className="info-block"><strong>The Story</strong> <p>{parsed.story}</p></div>}
                 {parsed.method && <div className="info-block"><strong>Culinary Method</strong> <p>{parsed.method}</p></div>}
@@ -331,7 +359,7 @@ function DishDetail({ dish, targetLang, onClose }) {
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
-        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; overflow: hidden; background: #f0f0f0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 280px; overflow: hidden; background: #f0f0f0; border-bottom: 1px solid rgba(0,0,0,0.05); }
         .detail-img-container img { width: 100%; height: 100%; object-fit: cover; }
         .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
         .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
@@ -343,6 +371,8 @@ function DishDetail({ dish, targetLang, onClose }) {
         .loading-text { color: #999; font-style: italic; text-align: center; margin: 60px 0; }
         .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
         .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
+        .quota-error { background: #fff5f5; border: 1px solid #feb2b2; padding: 16px; border-radius: 12px; text-align: center; }
+        .quota-error p { color: #c53030; font-size: 14px; margin: 4px 0; }
       `}</style>
     </div>
   );
