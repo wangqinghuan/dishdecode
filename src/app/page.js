@@ -209,19 +209,31 @@ function DishDetail({ dish, onClose }) {
         console.error("Detail AI fetch failed", e);
       }
 
-      // 2. 获取 Wikipedia 真实图片 (尝试多种名称匹配)
+      // 2. 获取 Wikipedia 真实图片 (尝试多种名称匹配和语言)
       try {
         const searchTerms = [dish.nameEN, dish.nameCN, dish.nameEN.replace(/ /g, '_')];
         let foundImg = null;
         
-        for (const term of searchTerms) {
-          const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.originalimage?.source) {
-              foundImg = data.originalimage.source;
-              break;
-            }
+        // 先尝试英文维基，再尝试中文维基
+        const langs = ['en', 'zh'];
+        
+        for (const lang of langs) {
+          if (foundImg) break;
+          for (const term of searchTerms) {
+            try {
+              const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.originalimage?.source) {
+                  // 验证图片链接是否真的可用
+                  const imgCheck = await fetch(data.originalimage.source, { method: 'HEAD' });
+                  if (imgCheck.ok) {
+                    foundImg = data.originalimage.source;
+                    break;
+                  }
+                }
+              }
+            } catch (innerE) {}
           }
         }
         setWikiData(prev => ({ ...prev, img: foundImg }));
