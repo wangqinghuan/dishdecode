@@ -148,7 +148,7 @@ export default function Home() {
 
       {selectedDish && (
         <DishDetail 
-          key={selectedDish.nameCN} // 使用 key 强制重新挂载组件，防止请求状态混乱
+          key={selectedDish.nameCN + targetLang} // 复合 key 确保彻底刷新
           dish={selectedDish} 
           targetLang={targetLang}
           onClose={() => setSelectedDish(null)} 
@@ -221,26 +221,25 @@ function DishDetail({ dish, targetLang, onClose }) {
   const [images, setImages] = useState([]);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false); // 关键修复：防止 React StrictMode 下的二次请求
+  const initialFetchRef = useRef(false);
 
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
+    // 强制只执行一次，解决 React 18 的 StrictMode 问题
+    if (initialFetchRef.current) return;
+    initialFetchRef.current = true;
 
     let isMounted = true;
-    const cacheKey = `detail_v3_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_v4_${dish.nameCN}_${targetLang}`;
+    const cached = localStorage.getItem(cacheKey);
     
-    async function fetchAll() {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsedCache = JSON.parse(cached);
-        if (isMounted) {
-          setDetails(parsedCache.text);
-          setImages(parsedCache.images || []);
-        }
-        return;
-      }
+    if (cached) {
+      const parsedCache = JSON.parse(cached);
+      setDetails(parsedCache.text);
+      setImages(parsedCache.images || []);
+      return;
+    }
 
+    async function fetchAll() {
       setLoading(true);
       try {
         const [detailRes, imgRes] = await Promise.all([
@@ -263,9 +262,9 @@ function DishDetail({ dish, targetLang, onClose }) {
 
         const detailData = await detailRes.json();
         const imgData = await imgRes.json();
-        
         const newImages = imgData.images || [];
         
+        // 即使卸载也存入缓存
         localStorage.setItem(cacheKey, JSON.stringify({ 
           text: detailData.text, 
           images: newImages 
@@ -285,6 +284,7 @@ function DishDetail({ dish, targetLang, onClose }) {
     return () => { isMounted = false; };
   }, [dish.nameCN, targetLang]);
 
+  // 实时解析详情文本
   const parsed = useMemo(() => {
     if (!details) return null;
     const parts = details.split(/(STORY:|METHOD:|TASTE:|SEARCH_TERMS:)/i).map(p => p.trim());
@@ -310,8 +310,8 @@ function DishDetail({ dish, targetLang, onClose }) {
                   <img 
                     src={url} 
                     alt={`${dish.nameEN} ${idx}`} 
-                    referrerPolicy="no-referrer" // 关键修复：防止部分网站屏蔽外部引用
-                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    loading="eager" // 强制立即加载
                   />
                 </div>
               ))}
@@ -319,7 +319,7 @@ function DishDetail({ dish, targetLang, onClose }) {
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{loading ? 'Fetching authentic dish photos...' : 'Seeking visual inspiration...'}</span>
+              <span>{loading ? 'Discovering dish photos...' : 'No imagery available'}</span>
             </div>
           )}
         </div>
@@ -334,11 +334,11 @@ function DishDetail({ dish, targetLang, onClose }) {
             {isQuotaExceeded ? (
               <div className="quota-error">
                 <p><strong>Daily limit reached.</strong></p>
-                <p>Our AI chef has cooked too many dishes today! Please try again tomorrow.</p>
+                <p>AI chef is resting. Please try again tomorrow!</p>
               </div>
             ) : parsed ? (
               <>
-                {parsed.story && <div className="info-block"><strong>History & Story</strong> <p>{parsed.story}</p></div>}
+                {parsed.story && <div className="info-block"><strong>The Story</strong> <p>{parsed.story}</p></div>}
                 {parsed.method && <div className="info-block"><strong>Culinary Method</strong> <p>{parsed.method}</p></div>}
                 {parsed.taste && <div className="info-block"><strong>Palate & Texture</strong> <p>{parsed.taste}</p></div>}
               </>
@@ -377,7 +377,7 @@ function DishDetail({ dish, targetLang, onClose }) {
         .info-block { margin-bottom: 24px; }
         .info-block strong { display: block; font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 800; }
         .info-block p { color: #333; line-height: 1.7; font-size: 16px; white-space: pre-wrap; }
-        .loading-text { color: #999; font-style: italic; text-align: center; margin: 60px 0; }
+        .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
         .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
         .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
         .quota-error { background: #fff5f5; border: 1px solid #feb2b2; padding: 16px; border-radius: 12px; text-align: center; }
