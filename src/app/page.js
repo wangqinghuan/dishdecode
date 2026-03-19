@@ -41,29 +41,22 @@ export default function Home() {
   const onFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setError(null);
     setResults({ items: [] });
-    
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target.result;
       setImage(base64);
       setLoading(true);
-
       try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64, prefs: userPrefs, targetLang }),
         });
-        
-        if (!response.ok) throw new Error("Server Error");
-
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -78,12 +71,7 @@ export default function Home() {
           });
           if (newItems.length > 0) setResults({ items: newItems });
         }
-      } catch (err) {
-        console.error("Upload error:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { setError(err.message); } finally { setLoading(false); }
     };
     reader.readAsDataURL(file);
   };
@@ -109,46 +97,26 @@ export default function Home() {
         </div>
       </header>
 
-      {error && <div className="error-bar">Error: {error}</div>}
-
       <main className="hero-section">
         {!image ? (
           <label className="scan-placeholder">
             <div className="camera-circle"><Camera size={40} color="white" /></div>
             <h2>Scan Your Menu</h2>
-            <p>Snap a photo to decode in {targetLang}.</p>
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={onFileChange} 
-              className="hidden-input"
-            />
+            <input type="file" accept="image/*" onChange={onFileChange} className="hidden-input" />
           </label>
         ) : (
           <div className="preview-view">
             <div className="preview-container">
               <img src={image} alt="Preview" />
-              {loading && (
-                <div className="scan-loader">
-                  <div className="line"></div>
-                  <span>Decoding into {targetLang}...</span>
-                </div>
-              )}
+              {loading && <div className="scan-loader"><div className="line"></div><span>Decoding...</span></div>}
             </div>
-            {results.items.length > 0 && (
-              <ResultsList 
-                results={results} 
-                onReset={reset} 
-                onDishClick={(dish) => setSelectedDish(dish)}
-              />
-            )}
+            {results.items.length > 0 && <ResultsList results={results} onReset={reset} onDishClick={setSelectedDish} />}
           </div>
         )}
       </main>
 
       {selectedDish && (
         <DishDetail 
-          key={`${selectedDish.nameCN}_${targetLang}`}
           dish={selectedDish} 
           targetLang={targetLang}
           onClose={() => setSelectedDish(null)} 
@@ -172,67 +140,45 @@ function ResultsList({ results, onReset, onDishClick }) {
   return (
     <div className="results-container">
       <div className="results-header">
-        <h3>Menu Analysis ({results.items?.length || 0})</h3>
+        <h3>Menu Analysis ({results.items.length})</h3>
         <button onClick={onReset} className="reset-btn"><X size={20} /></button>
       </div>
       <div className="dish-grid">
-        {results.items?.map((dish, i) => {
-          const rawPrice = parseFloat(String(dish.price).replace(/[^0-9.]/g, ''));
-          const finalPrice = isNaN(rawPrice) ? 0 : rawPrice;
-          const priceUSD = (finalPrice * 0.14).toFixed(2);
-          
-          return (
-            <div key={i} className={`dish-card ${dish.status}`} onClick={() => onDishClick(dish)} style={{cursor: 'pointer'}}>
-              <div className="dish-top">
-                <span className="dish-name-cn">{dish.nameCN}</span>
-                <div className="dish-price">¥{finalPrice} <span style={{fontSize: '11px', opacity: 0.6, fontWeight: 'normal'}}>(approx. ${priceUSD})</span></div>
-              </div>
-              <h4 style={{marginTop: '4px'}}>{dish.nameEN}</h4>
-              <div className="ingredients-box">
-                <span className="label">Ingredients</span>
-                <div className="ingredients">
-                  {dish.ingredients?.map((ing, idx) => {
-                    const parts = typeof ing === 'string' ? ing.split('|') : [];
-                    const langPart = parts[0] || '';
-                    const cnPart = parts[1] || '';
-                    return (
-                      <span key={idx} className="ing-item">
-                        {langPart} <span style={{opacity: 0.5, fontSize: '0.9em', marginLeft: '2px'}}>{cnPart}</span>
-                        {idx < dish.ingredients.length - 1 ? ', ' : ''}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="dish-meta">
-                <span className="tag">{dish.flavor}</span>
-                <span className="tag">Spiciness: {dish.spiciness}/5</span>
-              </div>
+        {results.items.map((dish, i) => (
+          <div key={i} className={`dish-card ${dish.status}`} onClick={() => onDishClick(dish)}>
+            <div className="dish-top">
+              <span className="dish-name-cn">{dish.nameCN}</span>
+              <div className="dish-price">¥{dish.price}</div>
             </div>
-          );
-        })}
+            <h4>{dish.nameEN}</h4>
+            <div className="dish-meta">
+              <span className="tag">{dish.flavor}</span>
+              <span className="tag">Heat: {dish.spiciness}/5</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 function DishDetail({ dish, targetLang, onClose }) {
-  const [data, setData] = useState({ details: null, images: [], loading: true, error: false });
+  const [state, setState] = useState({ details: null, images: [], loading: true, error: false });
 
   useEffect(() => {
     let active = true;
-    const cacheKey = `detail_vFinal_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vPROXY_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     
     if (cached) {
-      const parsed = JSON.parse(cached);
-      setData({ details: parsed.text, images: parsed.images || [], loading: false, error: false });
+      const p = JSON.parse(cached);
+      setState({ details: p.text, images: p.images || [], loading: false, error: false });
       return;
     }
 
-    async function fetchAll() {
+    async function fetchData() {
       try {
-        const [detailRes, imgRes] = await Promise.all([
+        const [dRes, iRes] = await Promise.all([
           fetch('/api/details', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -244,42 +190,36 @@ function DishDetail({ dish, targetLang, onClose }) {
             body: JSON.stringify({ nameCN: dish.nameCN })
           })
         ]);
-        
-        if (detailRes.status === 429) {
-          if (active) setData(prev => ({ ...prev, loading: false, error: 'limit' }));
-          return;
-        }
 
-        const detailData = await detailRes.json();
-        const imgData = await imgRes.json();
-        const newImages = imgData.images || [];
+        const dData = await dRes.json();
+        const iData = await iRes.json();
         
-        localStorage.setItem(cacheKey, JSON.stringify({ text: detailData.text, images: newImages }));
+        // 关键修复：图片链接通过我们的后端 Proxy 转发，绕过防盗链
+        const proxiedImages = (iData.images || []).map(url => `/api/images/proxy?url=${encodeURIComponent(url)}`);
+        
+        localStorage.setItem(cacheKey, JSON.stringify({ text: dData.text, images: proxiedImages }));
         
         if (active) {
-          setData({ details: detailData.text, images: newImages, loading: false, error: false });
+          setState({ details: dData.text, images: proxiedImages, loading: false, error: false });
         }
       } catch (e) {
-        if (active) setData(prev => ({ ...prev, loading: false, error: true }));
+        if (active) setState(s => ({ ...s, loading: false, error: true }));
       }
     }
-    fetchAll();
+    fetchData();
     return () => { active = false; };
   }, [dish.nameCN, targetLang]);
 
   const parsedText = useMemo(() => {
-    if (!data.details) return null;
+    if (!state.details) return null;
     const res = {};
-    const sections = data.details.split(/(STORY:|METHOD:|TASTE:)/i);
-    for (let i = 1; i < sections.length; i += 2) {
-      let key = sections[i].toLowerCase().replace(':', '');
-      if (key.includes('story')) key = 'story';
-      else if (key.includes('method')) key = 'method';
-      else if (key.includes('taste')) key = 'taste';
-      res[key] = sections[i + 1]?.split(/(STORY:|METHOD:|TASTE:)/i)[0].trim();
+    const parts = state.details.split(/(STORY:|METHOD:|TASTE:)/i);
+    for (let i = 1; i < parts.length; i += 2) {
+      const key = parts[i].toLowerCase().replace(':', '');
+      res[key] = parts[i+1]?.split(/(STORY:|METHOD:|TASTE:)/i)[0].trim();
     }
-    return (res.story || res.method || res.taste) ? res : { story: data.details };
-  }, [data.details]);
+    return (res.story || res.method || res.taste) ? res : { story: state.details };
+  }, [state.details]);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
@@ -288,18 +228,18 @@ function DishDetail({ dish, targetLang, onClose }) {
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
         <div className="detail-gallery-container">
-          {data.images.length > 0 ? (
+          {state.images.length > 0 ? (
             <div className="image-carousel">
-              {data.images.map((url, idx) => (
-                <div key={url + idx} className="carousel-item">
-                  <img src={url} alt="Dish" referrerPolicy="no-referrer" loading="eager" />
+              {state.images.map((url, idx) => (
+                <div key={idx} className="carousel-item">
+                  <img src={url} alt="Dish" loading="eager" />
                 </div>
               ))}
             </div>
           ) : (
             <div className="placeholder-img">
-              <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{data.loading ? 'Loading authentic photos...' : 'Seeking inspiration...'}</span>
+              <Camera size={40} color="#ccc" />
+              <span>{state.loading ? 'Fetching authentic photos...' : 'No imagery found'}</span>
             </div>
           )}
         </div>
@@ -309,24 +249,16 @@ function DishDetail({ dish, targetLang, onClose }) {
             <span className="detail-cn">{dish.nameCN}</span>
             <h2>{dish.nameEN}</h2>
           </div>
-          
           <div className="detail-body">
-            {data.error === 'limit' ? (
-              <div className="quota-error"><p><strong>Daily limit reached.</strong> AI is resting.</p></div>
-            ) : data.loading ? (
-              <p className="loading-text">Unfolding the culinary story...</p>
-            ) : parsedText ? (
+            {state.loading ? (
+              <p className="loading-text">Decoding culinary secrets...</p>
+            ) : (
               <>
-                {parsedText.story && <div className="info-block"><strong>Heritage</strong> <p>{parsedText.story}</p></div>}
-                {parsedText.method && <div className="info-block"><strong>Creation</strong> <p>{parsedText.method}</p></div>}
-                {parsedText.taste && <div className="info-block"><strong>Essence</strong> <p>{parsedText.taste}</p></div>}
+                {parsedText?.story && <div className="info-block"><strong>Heritage</strong><p>{parsedText.story}</p></div>}
+                {parsedText?.method && <div className="info-block"><strong>Creation</strong><p>{parsedText.method}</p></div>}
+                {parsedText?.taste && <div className="info-block"><strong>Essence</strong><p>{parsedText.taste}</p></div>}
               </>
-            ) : null}
-            
-            <div className="detail-tags">
-              <span className="tag">{dish.flavor}</span>
-              <span className="tag">Spiciness: {dish.spiciness}/5</span>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -342,17 +274,13 @@ function DishDetail({ dish, targetLang, onClose }) {
         .carousel-item { flex: 0 0 100%; scroll-snap-align: start; height: 100%; }
         .carousel-item img { width: 100%; height: 100%; object-fit: cover; }
         .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
-        .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
-        .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
+        .detail-cn { color: #c83c23; font-weight: bold; font-size: 20px; }
         .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
         .info-block { margin-bottom: 24px; }
         .info-block strong { display: block; font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 800; }
         .info-block p { color: #333; line-height: 1.7; font-size: 16px; white-space: pre-wrap; }
         .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
-        .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
         .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
-        .quota-error { background: #fff5f5; border: 1px solid #feb2b2; padding: 16px; border-radius: 12px; text-align: center; }
-        .quota-error p { color: #c53030; font-size: 14px; margin: 4px 0; }
       `}</style>
     </div>
   );
