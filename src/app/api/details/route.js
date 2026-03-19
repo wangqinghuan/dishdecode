@@ -5,7 +5,7 @@ export async function POST(req) {
     const { nameCN, nameEN, targetLang = 'English' } = await req.json();
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-002" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
       You are a Chinese culinary expert. Provide info for "${nameCN}" (${nameEN}) in BILINGUAL (${targetLang} & Chinese).
