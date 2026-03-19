@@ -1,20 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { Camera, Settings, X, Globe } from 'lucide-react';
+import { Camera, X, Globe, ChevronDown, Loader2 } from 'lucide-react';
 
 const LANGUAGES = [
-  { label: 'English', value: 'English' },
-  { label: 'Bahasa Indonesia', value: 'Indonesian' },
-  { label: 'Filipino', value: 'Filipino' },
-  { label: 'Español', value: 'Spanish' },
-  { label: 'Français', value: 'French' },
-  { label: 'Русский', value: 'Russian' },
-  { label: 'العربية', value: 'Arabic' },
-  { label: 'Deutsch', value: 'German' },
-  { label: '日本語', value: 'Japanese' },
-  { label: '한국어', value: 'Korean' }
+  { label: 'English', value: 'English', currency: 'USD', symbol: '$', rate: 0.14 },
+  { label: 'Bahasa Indonesia', value: 'Indonesian', currency: 'IDR', symbol: 'Rp', rate: 2200 },
+  { label: 'Filipino', value: 'Filipino', currency: 'PHP', symbol: '₱', rate: 7.8 },
+  { label: 'Español', value: 'Spanish', currency: 'EUR', symbol: '€', rate: 0.13 },
+  { label: 'Français', value: 'French', currency: 'EUR', symbol: '€', rate: 0.13 },
+  { label: 'Русский', value: 'Russian', currency: 'RUB', symbol: '₽', rate: 12.5 },
+  { label: 'العربية', value: 'Arabic', currency: 'AED', symbol: 'د.إ', rate: 0.51 },
+  { label: 'Deutsch', value: 'German', currency: 'EUR', symbol: '€', rate: 0.13 },
+  { label: '日本語', value: 'Japanese', currency: 'JPY', symbol: '¥', rate: 21 },
+  { label: '한국어', value: 'Korean', currency: 'KRW', symbol: '₩', rate: 185 }
 ];
 
 export default function Home() {
@@ -22,27 +21,29 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState({ items: [] });
   const [error, setError] = useState(null);
-  const [userPrefs, setUserPrefs] = useState({ allergens: [], dislikes: [] });
   const [selectedDish, setSelectedDish] = useState(null);
   const [dishDetailData, setDishDetailData] = useState({ text: null, images: [], loading: false });
   const [targetLang, setTargetLang] = useState('English');
+  const [showLangMenu, setShowLangMenu] = useState(false);
+
+  const currentLangObj = useMemo(() => 
+    LANGUAGES.find(l => l.value === targetLang) || LANGUAGES[0]
+  , [targetLang]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('dishdecode_prefs');
-    if (saved) setUserPrefs(JSON.parse(saved));
     const savedLang = localStorage.getItem('dishdecode_lang');
     if (savedLang) setTargetLang(savedLang);
   }, []);
 
-  const handleLangChange = (e) => {
-    setTargetLang(e.target.value);
-    localStorage.setItem('dishdecode_lang', e.target.value);
+  const selectLang = (val) => {
+    setTargetLang(val);
+    localStorage.setItem('dishdecode_lang', val);
+    setShowLangMenu(false);
   };
 
-  // 关键修复：将详情获取逻辑移出组件内部，由点击事件触发，确保只执行一次
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vFinal_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vSlim_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     
     if (cached) {
@@ -80,7 +81,6 @@ export default function Home() {
   const onFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setError(null);
     setResults({ items: [] });
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -91,7 +91,7 @@ export default function Home() {
         const response = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, prefs: userPrefs, targetLang }),
+          body: JSON.stringify({ image: base64, targetLang }),
         });
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -115,24 +115,26 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  const reset = () => {
-    setImage(null);
-    setResults({ items: [] });
-    setError(null);
-  };
-
   return (
     <div className="home-wrapper">
       <header className="home-header">
         <h1 className="brand-text">DishDecode</h1>
-        <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
-          <div className="lang-select-wrapper">
+        
+        <div className="custom-lang-selector">
+          <button className="lang-btn" onClick={() => setShowLangMenu(!showLangMenu)}>
             <Globe size={16} />
-            <select value={targetLang} onChange={handleLangChange} className="lang-select">
-              {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-            </select>
-          </div>
-          <Link href="/preferences" className="settings-link"><Settings size={20} /></Link>
+            <span>{currentLangObj.label}</span>
+            <ChevronDown size={14} className={showLangMenu ? 'rotate' : ''} />
+          </button>
+          {showLangMenu && (
+            <div className="lang-dropdown">
+              {LANGUAGES.map(l => (
+                <div key={l.value} className="lang-option" onClick={() => selectLang(l.value)}>
+                  {l.label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
@@ -140,16 +142,24 @@ export default function Home() {
         {!image ? (
           <label className="scan-placeholder">
             <div className="camera-circle"><Camera size={40} color="white" /></div>
-            <h2>Scan Your Menu</h2>
+            <h2>Scan Menu</h2>
+            <p>Decoding into {targetLang}</p>
             <input type="file" accept="image/*" onChange={onFileChange} className="hidden-input" />
           </label>
         ) : (
           <div className="preview-view">
             <div className="preview-container">
               <img src={image} alt="Preview" />
-              {loading && <div className="scan-loader"><div className="line"></div><span>Decoding...</span></div>}
+              {loading && <div className="scan-loader"><div className="line"></div><span>Scanning...</span></div>}
             </div>
-            {results.items.length > 0 && <ResultsList results={results} onReset={reset} onDishClick={handleDishClick} />}
+            {results.items.length > 0 && (
+              <ResultsList 
+                results={results} 
+                currency={currentLangObj}
+                onReset={() => { setImage(null); setResults({items:[]}); }} 
+                onDishClick={handleDishClick} 
+              />
+            )}
           </div>
         )}
       </main>
@@ -163,8 +173,16 @@ export default function Home() {
       )}
 
       <style jsx global>{`
-        .lang-select-wrapper { display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 20px; border: 1px solid #ddd; }
-        .lang-select { border: none; background: transparent; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
+        .custom-lang-selector { position: relative; z-index: 50; }
+        .lang-btn { background: #f0f0f0; border: none; padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; cursor: pointer; color: #1a1a1b; transition: all 0.2s; }
+        .lang-btn:active { transform: scale(0.95); }
+        .lang-btn .rotate { transform: rotate(180deg); }
+        .lang-dropdown { position: absolute; right: 0; top: 40px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #eee; min-width: 160px; overflow: hidden; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .lang-option { padding: 12px 16px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
+        .lang-option:last-child { border: none; }
+        .lang-option:hover { background: #fcfaf2; color: #c83c23; }
+        
         .scan-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
         .scan-loader .line { width: 100%; height: 2px; background: #c83c23; position: absolute; top: 0; animation: scanAnim 2s linear infinite; }
         @keyframes scanAnim { 0% { top: 0%; } 100% { top: 100%; } }
@@ -175,34 +193,47 @@ export default function Home() {
   );
 }
 
-function ResultsList({ results, onReset, onDishClick }) {
+function ResultsList({ results, currency, onReset, onDishClick }) {
   return (
     <div className="results-container">
       <div className="results-header">
-        <h3>Menu Analysis ({results.items.length})</h3>
+        <h3>Menu ({results.items.length})</h3>
         <button onClick={onReset} className="reset-btn"><X size={20} /></button>
       </div>
       <div className="dish-grid">
-        {results.items.map((dish, i) => (
-          <div key={i} className={`dish-card ${dish.status}`} onClick={() => onDishClick(dish)}>
-            <div className="dish-top">
-              <span className="dish-name-cn">{dish.nameCN}</span>
-              <div className="dish-price">¥{dish.price}</div>
+        {results.items.map((dish, i) => {
+          const rawPrice = parseFloat(String(dish.price).replace(/[^0-9.]/g, ''));
+          const finalPrice = isNaN(rawPrice) ? 0 : rawPrice;
+          const converted = (finalPrice * currency.rate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+          
+          return (
+            <div key={i} className="dish-card safe" onClick={() => onDishClick(dish)}>
+              <div className="dish-top">
+                <span className="dish-name-cn">{dish.nameCN}</span>
+                <div className="dish-price">
+                  <span className="cny">¥{finalPrice}</span>
+                  <span className="converted">{currency.symbol}{converted}</span>
+                </div>
+              </div>
+              <h4>{dish.nameEN}</h4>
+              <div className="dish-meta">
+                <span className="tag">{dish.flavor}</span>
+              </div>
             </div>
-            <h4>{dish.nameEN}</h4>
-            <div className="dish-meta">
-              <span className="tag">{dish.flavor}</span>
-              <span className="tag">Heat: {dish.spiciness}/5</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      <style jsx>{`
+        .dish-price { display: flex; flex-direction: column; align-items: flex-end; }
+        .cny { font-size: 15px; font-weight: 800; color: #1a1a1b; }
+        .converted { font-size: 11px; color: #949495; font-weight: normal; }
+      `}</style>
     </div>
   );
 }
 
 function DishDetail({ dish, data, onClose }) {
-  const parsedText = useMemo(() => {
+  const parsed = useMemo(() => {
     if (!data.text) return null;
     const res = {};
     const parts = data.text.split(/(STORY:|METHOD:|TASTE:)/i);
@@ -220,19 +251,20 @@ function DishDetail({ dish, data, onClose }) {
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
         <div className="detail-gallery-container">
-          {data.images.length > 0 ? (
+          {data.loading ? (
+            <div className="skeleton-gallery">
+              <Loader2 className="spin" size={30} />
+            </div>
+          ) : data.images.length > 0 ? (
             <div className="image-carousel">
               {data.images.map((url, idx) => (
-                <div key={url + idx} className="carousel-item">
+                <div key={idx} className="carousel-item">
                   <img src={url} alt="Dish" loading="eager" />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="placeholder-img">
-              <Camera size={40} color="#ccc" />
-              <span>{data.loading ? 'Fetching authentic photos...' : 'No imagery found'}</span>
-            </div>
+            <div className="placeholder-img"><Camera size={40} color="#ddd" /></div>
           )}
         </div>
 
@@ -243,36 +275,45 @@ function DishDetail({ dish, data, onClose }) {
           </div>
           <div className="detail-body">
             {data.loading ? (
-              <p className="loading-text">Decoding culinary secrets...</p>
+              <div className="skeleton-text">
+                <div className="s-line" style={{width: '90%'}}></div>
+                <div className="s-line" style={{width: '100%'}}></div>
+                <div className="s-line" style={{width: '70%'}}></div>
+              </div>
             ) : (
-              <>
-                {parsedText?.story && <div className="info-block"><strong>Heritage</strong><p>{parsedText.story}</p></div>}
-                {parsedText?.method && <div className="info-block"><strong>Creation</strong><p>{parsedText.method}</p></div>}
-                {parsedText?.taste && <div className="info-block"><strong>Essence</strong><p>{parsedText.taste}</p></div>}
-              </>
+              <div className="slim-details">
+                {parsed?.story && <div className="slim-block"><strong>Background</strong><p>{parsed.story}</p></div>}
+                {parsed?.method && <div className="slim-block"><strong>Method</strong><p>{parsed.method}</p></div>}
+                {parsed?.taste && <div className="slim-block"><strong>Flavor</strong><p>{parsed.taste}</p></div>}
+              </div>
             )}
           </div>
         </div>
       </div>
       <style jsx>{`
         .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: flex-end; backdrop-filter: blur(4px); }
-        .detail-sheet { background: #fcfaf2; width: 100%; border-radius: 24px 24px 0 0; padding: 24px; position: relative; max-height: 92vh; overflow-y: auto; box-shadow: 0 -10px 40px rgba(0,0,0,0.3); animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+        .detail-sheet { background: #fcfaf2; width: 100%; border-radius: 24px 24px 0 0; padding: 24px; position: relative; max-height: 92vh; overflow-y: auto; box-shadow: 0 -10px 40px rgba(0,0,0,0.3); animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
-        .detail-gallery-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; background: #f0f0f0; position: relative; }
+        .detail-gallery-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 260px; background: #eee; position: relative; overflow: hidden; }
         .image-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; height: 100%; scrollbar-width: none; }
         .image-carousel::-webkit-scrollbar { display: none; }
         .carousel-item { flex: 0 0 100%; scroll-snap-align: start; height: 100%; }
         .carousel-item img { width: 100%; height: 100%; object-fit: cover; }
-        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
-        .detail-cn { color: #c83c23; font-weight: bold; font-size: 20px; }
-        .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
-        .info-block { margin-bottom: 24px; }
-        .info-block strong { display: block; font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 800; }
-        .info-block p { color: #333; line-height: 1.7; font-size: 16px; white-space: pre-wrap; }
-        .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
-        .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
+        
+        .skeleton-gallery { height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        .skeleton-text { margin-top: 10px; }
+        .s-line { height: 14px; background: #eee; margin-bottom: 12px; border-radius: 4px; animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; color: #c83c23; opacity: 0.5; }
+
+        .detail-header h2 { font-size: 28px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; }
+        .slim-block { margin-bottom: 18px; }
+        .slim-block strong { font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1px; }
+        .slim-block p { color: #444; font-size: 15px; margin-top: 2px; }
+        .tag { background: white; border: 1px solid #eee; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #666; }
       `}</style>
     </div>
   );

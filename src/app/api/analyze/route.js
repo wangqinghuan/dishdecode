@@ -17,7 +17,8 @@ export async function POST(req) {
       ACT AS A RAW DATA EXTRACTOR. 
       TASK: Convert EVERY visible dish in this image into a JSON list.
       TARGET LANGUAGE: ${targetLang}
-      OUTPUT FORMAT: {"items": [{"nameCN": "Dish Name", "nameEN": "Translated Name", "price": 0, "ingredients": ["${targetLang}|中文"], "flavor": "Spicy", "spiciness": 0, "status": "safe"}]}
+      RULES: INCLUDE EVERY ITEM. DO NOT SKIP.
+      OUTPUT FORMAT: {"items": [{"nameCN": "Dish Name", "nameEN": "Translated Name", "price": 0, "flavor": "Spicy", "spiciness": 0}]}
       Return ONLY the JSON. Start immediately with {"items": [
     `;
 

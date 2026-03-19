@@ -8,14 +8,13 @@ export async function POST(req) {
     const allKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
     const shuffledKeys = allKeys.sort(() => Math.random() - 0.5);
 
+    // 极简提示词，追求速度和直观
     const prompt = `
-      You are a Chinese culinary expert. Provide detailed info for "${nameCN}" (${nameEN}) in BILINGUAL format (${targetLang} and Chinese).
-      
-      1. STORY: Cultural origin or naming story.
-      2. METHOD: Cooking method and key ingredients.
-      3. TASTE: Flavor and texture profile.
-
-      Format: STORY: [Bilingual Text] METHOD: [Bilingual Text] TASTE: [Bilingual Text]
+      Dish: "${nameCN}" (${nameEN}). Provide info in ${targetLang} & Chinese.
+      1. STORY: 1 short sentence origin.
+      2. METHOD: 1 short sentence how it's cooked.
+      3. TASTE: 1-3 descriptive words.
+      Format: STORY: [Bilingual] | METHOD: [Bilingual] | TASTE: [Bilingual]
     `;
 
     let lastError = null;
@@ -30,13 +29,10 @@ export async function POST(req) {
         });
       } catch (e) {
         lastError = e;
-        console.error(`Key ${key.substring(0, 6)} failed:`, e.message);
         continue;
       }
     }
-
-    return new Response(JSON.stringify({ error: "Quota exhausted", detail: lastError?.message }), { status: 429 });
-    
+    return new Response(JSON.stringify({ error: "Exhausted" }), { status: 429 });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
