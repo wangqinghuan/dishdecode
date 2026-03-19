@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
 const PRODUCTION_MODEL = "gemini-1.5-flash";
 
 export async function POST(req) {
@@ -9,7 +10,13 @@ export async function POST(req) {
 
     const prompt = `
       You are a Chinese culinary expert. Provide detailed info for "${nameCN}" (${nameEN}) in BILINGUAL format (${targetLang} and Chinese).
-      STORY: ... METHOD: ... TASTE: ... SEARCH_TERMS: ...
+      
+      1. STORY: Cultural origin or naming story.
+      2. METHOD: Cooking method and key ingredients.
+      3. TASTE: Flavor and texture profile.
+      4. SEARCH_TERMS: One specific Chinese search phrase for food photos.
+
+      Format: STORY: [Bilingual Text] METHOD: [Bilingual Text] TASTE: [Bilingual Text] SEARCH_TERMS: [Phrase]
     `;
 
     let lastError = null;
@@ -18,15 +25,14 @@ export async function POST(req) {
       try {
         const model = genAI.getGenerativeModel({ model: PRODUCTION_MODEL });
         const result = await model.generateContent(prompt);
-...
-          const response = await result.response;
-          return new Response(JSON.stringify({ text: response.text() }), {
-            headers: { "Content-Type": "application/json" },
-          });
-        } catch (e) {
-          lastError = e;
-          continue;
-        }
+        const response = await result.response;
+        return new Response(JSON.stringify({ text: response.text() }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        lastError = e;
+        console.error(`Key ${key.substring(0, 6)} failed:`, e.message);
+        continue;
       }
     }
 
