@@ -4,7 +4,7 @@ export const maxDuration = 45;
 
 export async function POST(req) {
   try {
-    const { image, prefs } = await req.json();
+    const { image, prefs, targetLang = 'English' } = await req.json();
     const base64Data = image.split(',')[1];
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -13,22 +13,27 @@ export async function POST(req) {
     const prompt = `
       ACT AS A RAW DATA EXTRACTOR. 
       TASK: Convert EVERY visible dish in this image into a JSON list.
+      TARGET LANGUAGE: ${targetLang}
       
       RULES:
-      1. INCLUDE EVERY ITEM. DO NOT SUMMARIZE. DO NOT SKIP.
-      2. If price is missing or unclear, use 0.
-      3. For "status": "danger" if it contains ${prefs.allergens.join(',')}, "warning" if it contains ${prefs.dislikes.join(',')}, else "safe".
+      1. INCLUDE EVERY ITEM. DO NOT SKIP.
+      2. nameCN: Original Chinese name.
+      3. nameEN: Concise translation in ${targetLang}.
+      4. price: Numeric value (e.g. 28.5).
+      5. ingredients: ["${targetLang}|中文"] (Top 3 only).
+      6. flavor: 1 word in ${targetLang}.
+      7. status: "danger" if contains ${prefs.allergens.join(',')}, "warning" if contains ${prefs.dislikes.join(',')}, else "safe".
 
       OUTPUT FORMAT:
       {"items": [
         {
           "nameCN": "...",
           "nameEN": "...",
-          "price": 28.0,
-          "ingredients": ["EN|CN"],
+          "price": 0,
+          "ingredients": [],
           "flavor": "...",
           "spiciness": 0,
-          "status": "safe|warning|danger"
+          "status": "..."
         }
       ]}
       
