@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Camera, Settings, X, Globe } from 'lucide-react';
 
@@ -217,25 +217,19 @@ function ResultsList({ results, onReset, onDishClick }) {
 
 function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
-  const [imgUrl, setImgUrl] = useState(null);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     async function fetchInfo() {
       const cacheKey = `detail_${dish.nameCN}_${targetLang}`;
       const cached = localStorage.getItem(cacheKey);
       
-      // 1. 优先尝试从本地缓存读取
       if (cached) {
         const parsedCache = JSON.parse(cached);
-        setDetails(parsedCache.text);
-        setImgUrl(parsedCache.img);
+        if (isMounted) setDetails(parsedCache.text);
         return;
       }
-
-      let searchTerms = [dish.nameEN, dish.nameCN];
-      let aiText = null;
-      let foundImg = null;
 
       try {
         const detailRes = await fetch('/api/details', {
@@ -245,63 +239,33 @@ function DishDetail({ dish, targetLang, onClose }) {
         });
         
         if (detailRes.status === 429) {
-          setIsQuotaExceeded(true);
+          if (isMounted) setIsQuotaExceeded(true);
           return;
         }
 
         const detailData = await detailRes.json();
-        aiText = detailData.text;
-        setDetails(aiText);
-        
-        const match = aiText.match(/SEARCH_TERMS:\s*(.*)/i);
-        if (match?.[1]) {
-          const aiTerms = match[1].split(',').map(t => t.trim());
-          searchTerms = [...new Set([...aiTerms, ...searchTerms])];
+        if (isMounted) {
+          setDetails(detailData.text);
+          localStorage.setItem(cacheKey, JSON.stringify({ text: detailData.text }));
         }
       } catch (e) {
         console.error("Detail AI fetch failed", e);
       }
-
-      // 2. 搜图逻辑
-      try {
-        for (const lang of ['zh', 'en']) {
-          if (foundImg) break;
-          for (const term of searchTerms) {
-            try {
-              const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term.replace(/ /g, '_'))}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (data.originalimage?.source) {
-                  foundImg = data.originalimage.source;
-                  break;
-                }
-              }
-            } catch (innerE) {}
-          }
-        }
-        setImgUrl(foundImg);
-      } catch (e) {}
-
-      // 3. 存入缓存，下次免流量
-      if (aiText) {
-        localStorage.setItem(cacheKey, JSON.stringify({ text: aiText, img: foundImg }));
-      }
     }
     fetchInfo();
-  }, [dish, targetLang]);
+    return () => { isMounted = false; };
+  }, [dish.nameCN, targetLang]); // 修正依赖项，防止重复请求
 
-  const parseDetails = (text) => {
-    if (!text) return null;
-    const parts = text.split(/(STORY:|METHOD:|TASTE:|SEARCH_TERMS:)/i).map(p => p.trim());
+  const parsed = useMemo(() => {
+    if (!details) return null;
+    const parts = details.split(/(STORY:|METHOD:|TASTE:|SEARCH_TERMS:)/i).map(p => p.trim());
     const res = {};
     for (let i = 1; i < parts.length; i += 2) {
       const key = parts[i].replace(':', '').toLowerCase();
       res[key] = parts[i+1];
     }
     return res;
-  };
-
-  const parsed = parseDetails(details);
+  }, [details]);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
@@ -309,17 +273,6 @@ function DishDetail({ dish, targetLang, onClose }) {
         <div className="sheet-handle"></div>
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
-        <div className="detail-img-container">
-          {imgUrl ? (
-            <img src={imgUrl} alt={dish.nameEN} onError={() => setImgUrl(null)} />
-          ) : (
-            <div className="placeholder-img">
-              <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{isQuotaExceeded ? 'AI is resting...' : 'Seeking dish photo...'}</span>
-            </div>
-          )}
-        </div>
-
         <div className="detail-content">
           <div className="detail-header">
             <span className="detail-cn">{dish.nameCN}</span>
@@ -330,11 +283,11 @@ function DishDetail({ dish, targetLang, onClose }) {
             {isQuotaExceeded ? (
               <div className="quota-error">
                 <p><strong>Daily limit reached.</strong></p>
-                <p>Our AI chef has cooked too many dishes today! Please try again tomorrow or use a different device.</p>
+                <p>Our AI chef has cooked too many dishes today! Please try again tomorrow.</p>
               </div>
             ) : parsed ? (
               <>
-                {parsed.story && <div className="info-block"><strong>The Story</strong> <p>{parsed.story}</p></div>}
+                {parsed.story && <div className="info-block"><strong>History & Story</strong> <p>{parsed.story}</p></div>}
                 {parsed.method && <div className="info-block"><strong>Culinary Method</strong> <p>{parsed.method}</p></div>}
                 {parsed.taste && <div className="info-block"><strong>Palate & Texture</strong> <p>{parsed.taste}</p></div>}
               </>
@@ -359,9 +312,6 @@ function DishDetail({ dish, targetLang, onClose }) {
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
-        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 280px; overflow: hidden; background: #f0f0f0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .detail-img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
         .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
         .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
         .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
