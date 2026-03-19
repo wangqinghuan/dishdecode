@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { Camera, Settings, X, Globe } from 'lucide-react';
 
@@ -148,6 +148,7 @@ export default function Home() {
 
       {selectedDish && (
         <DishDetail 
+          key={selectedDish.nameCN} // 使用 key 强制重新挂载组件，防止请求状态混乱
           dish={selectedDish} 
           targetLang={targetLang}
           onClose={() => setSelectedDish(null)} 
@@ -219,11 +220,15 @@ function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
   const [images, setImages] = useState([]);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
-  const [loadingImages, setLoadingImages] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false); // 关键修复：防止 React StrictMode 下的二次请求
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+
     let isMounted = true;
-    const cacheKey = `detail_v2_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_v3_${dish.nameCN}_${targetLang}`;
     
     async function fetchAll() {
       const cached = localStorage.getItem(cacheKey);
@@ -236,9 +241,8 @@ function DishDetail({ dish, targetLang, onClose }) {
         return;
       }
 
-      setLoadingImages(true);
+      setLoading(true);
       try {
-        // 1. 并发获取 AI 文字和图片
         const [detailRes, imgRes] = await Promise.all([
           fetch('/api/details', {
             method: 'POST',
@@ -274,7 +278,7 @@ function DishDetail({ dish, targetLang, onClose }) {
       } catch (e) {
         console.error("Fetch failed", e);
       } finally {
-        if (isMounted) setLoadingImages(false);
+        if (isMounted) setLoading(false);
       }
     }
     fetchAll();
@@ -303,14 +307,19 @@ function DishDetail({ dish, targetLang, onClose }) {
             <div className="image-carousel">
               {images.map((url, idx) => (
                 <div key={idx} className="carousel-item">
-                  <img src={url} alt={`${dish.nameEN} ${idx}`} onError={(e) => e.target.style.display='none'} />
+                  <img 
+                    src={url} 
+                    alt={`${dish.nameEN} ${idx}`} 
+                    referrerPolicy="no-referrer" // 关键修复：防止部分网站屏蔽外部引用
+                    loading="lazy"
+                  />
                 </div>
               ))}
             </div>
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{loadingImages ? 'Fetching authentic dish photos...' : 'Seeking visual inspiration...'}</span>
+              <span>{loading ? 'Fetching authentic dish photos...' : 'Seeking visual inspiration...'}</span>
             </div>
           )}
         </div>
@@ -368,7 +377,7 @@ function DishDetail({ dish, targetLang, onClose }) {
         .info-block { margin-bottom: 24px; }
         .info-block strong { display: block; font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 800; }
         .info-block p { color: #333; line-height: 1.7; font-size: 16px; white-space: pre-wrap; }
-        .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
+        .loading-text { color: #999; font-style: italic; text-align: center; margin: 60px 0; }
         .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
         .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
         .quota-error { background: #fff5f5; border: 1px solid #feb2b2; padding: 16px; border-radius: 12px; text-align: center; }
