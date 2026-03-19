@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Camera, Settings, X, Globe } from 'lucide-react';
 
@@ -217,30 +217,20 @@ function ResultsList({ results, onReset, onDishClick }) {
 }
 
 function DishDetail({ dish, targetLang, onClose }) {
-  const [details, setDetails] = useState(null);
-  const [images, setImages] = useState([]);
-  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const fetchedRef = useRef(false);
+  const [data, setData] = useState({ details: null, images: [], loading: true, error: false });
 
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-
-    let isMounted = true;
-    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
+    let active = true;
+    const cacheKey = `detail_vFinal_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     
     if (cached) {
-      const parsedCache = JSON.parse(cached);
-      setDetails(parsedCache.text);
-      setImages(parsedCache.images || []);
-      setLoading(false);
+      const parsed = JSON.parse(cached);
+      setData({ details: parsed.text, images: parsed.images || [], loading: false, error: false });
       return;
     }
 
     async function fetchAll() {
-      setLoading(true);
       try {
         const [detailRes, imgRes] = await Promise.all([
           fetch('/api/details', {
@@ -256,7 +246,7 @@ function DishDetail({ dish, targetLang, onClose }) {
         ]);
         
         if (detailRes.status === 429) {
-          if (isMounted) setIsQuotaExceeded(true);
+          if (active) setData(prev => ({ ...prev, loading: false, error: 'limit' }));
           return;
         }
 
@@ -264,51 +254,32 @@ function DishDetail({ dish, targetLang, onClose }) {
         const imgData = await imgRes.json();
         const newImages = imgData.images || [];
         
-        localStorage.setItem(cacheKey, JSON.stringify({ 
-          text: detailData.text, 
-          images: newImages 
-        }));
+        localStorage.setItem(cacheKey, JSON.stringify({ text: detailData.text, images: newImages }));
         
-        if (isMounted) {
-          setDetails(detailData.text);
-          setImages(newImages);
+        if (active) {
+          setData({ details: detailData.text, images: newImages, loading: false, error: false });
         }
       } catch (e) {
-        console.error("Fetch failed", e);
-      } finally {
-        if (isMounted) setLoading(false);
+        if (active) setData(prev => ({ ...prev, loading: false, error: true }));
       }
     }
     fetchAll();
-    return () => { isMounted = false; };
+    return () => { active = false; };
   }, [dish.nameCN, targetLang]);
 
-  // 【核心修复】极强容错的文本解析逻辑
-  const parsed = useMemo(() => {
-    if (!details) return null;
+  const parsedText = useMemo(() => {
+    if (!data.details) return null;
     const res = {};
-    const patterns = {
-      story: /(STORY:|1\.\s*STORY:|History:|Background:)/i,
-      method: /(METHOD:|2\.\s*METHOD:|Cooking:|Instructions:)/i,
-      taste: /(TASTE:|3\.\s*TASTE:|Flavor:|Profile:)/i
-    };
-
-    // 寻找每个部分的起始位置
-    const sections = details.split(/(STORY:|METHOD:|TASTE:|1\.\s*STORY:|2\.\s*METHOD:|3\.\s*TASTE:)/i);
+    const sections = data.details.split(/(STORY:|METHOD:|TASTE:)/i);
     for (let i = 1; i < sections.length; i += 2) {
-      let key = sections[i].toLowerCase();
+      let key = sections[i].toLowerCase().replace(':', '');
       if (key.includes('story')) key = 'story';
       else if (key.includes('method')) key = 'method';
       else if (key.includes('taste')) key = 'taste';
-      res[key] = sections[i + 1]?.split(/\n\n|STORY:|METHOD:|TASTE:/i)[0].trim();
+      res[key] = sections[i + 1]?.split(/(STORY:|METHOD:|TASTE:)/i)[0].trim();
     }
-    
-    // 如果解析失败，直接显示原文
-    if (!res.story && !res.method && !res.taste) {
-      return { story: details };
-    }
-    return res;
-  }, [details]);
+    return (res.story || res.method || res.taste) ? res : { story: data.details };
+  }, [data.details]);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
@@ -317,18 +288,18 @@ function DishDetail({ dish, targetLang, onClose }) {
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
         <div className="detail-gallery-container">
-          {images.length > 0 ? (
+          {data.images.length > 0 ? (
             <div className="image-carousel">
-              {images.map((url, idx) => (
-                <div key={idx} className="carousel-item">
-                  <img src={url} alt={`${dish.nameEN} ${idx}`} referrerPolicy="no-referrer" loading="eager" />
+              {data.images.map((url, idx) => (
+                <div key={url + idx} className="carousel-item">
+                  <img src={url} alt="Dish" referrerPolicy="no-referrer" loading="eager" />
                 </div>
               ))}
             </div>
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{loading ? 'Authenticating dish photos...' : 'Seeking inspiration...'}</span>
+              <span>{data.loading ? 'Loading authentic photos...' : 'Seeking inspiration...'}</span>
             </div>
           )}
         </div>
@@ -340,20 +311,17 @@ function DishDetail({ dish, targetLang, onClose }) {
           </div>
           
           <div className="detail-body">
-            {isQuotaExceeded ? (
-              <div className="quota-error">
-                <p><strong>Daily limit reached.</strong></p>
-                <p>AI chef is resting. Please try again tomorrow!</p>
-              </div>
-            ) : parsed ? (
+            {data.error === 'limit' ? (
+              <div className="quota-error"><p><strong>Daily limit reached.</strong> AI is resting.</p></div>
+            ) : data.loading ? (
+              <p className="loading-text">Unfolding the culinary story...</p>
+            ) : parsedText ? (
               <>
-                {parsed.story && <div className="info-block"><strong>Heritage</strong> <p>{parsed.story}</p></div>}
-                {parsed.method && <div className="info-block"><strong>Creation</strong> <p>{parsed.method}</p></div>}
-                {parsed.taste && <div className="info-block"><strong>Essence</strong> <p>{parsed.taste}</p></div>}
+                {parsedText.story && <div className="info-block"><strong>Heritage</strong> <p>{parsedText.story}</p></div>}
+                {parsedText.method && <div className="info-block"><strong>Creation</strong> <p>{parsedText.method}</p></div>}
+                {parsedText.taste && <div className="info-block"><strong>Essence</strong> <p>{parsedText.taste}</p></div>}
               </>
-            ) : (
-              <p className="loading-text">Unfolding culinary secrets...</p>
-            )}
+            ) : null}
             
             <div className="detail-tags">
               <span className="tag">{dish.flavor}</span>
