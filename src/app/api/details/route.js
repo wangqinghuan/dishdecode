@@ -8,14 +8,14 @@ export async function POST(req) {
     const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
 
     const prompt = `
-      You are a Chinese culinary expert. Provide detailed info for "${nameCN}" (${nameEN}) in BILINGUAL format (${targetLang} and Chinese).
+      You are a Chinese culinary expert. Provide info for "${nameCN}" (${nameEN}) in BILINGUAL (${targetLang} & Chinese).
       
       1. STORY: Cultural origin/naming story. (Both ${targetLang} and Chinese).
       2. METHOD: Cooking steps and key ingredients. (Both ${targetLang} and Chinese).
       3. TASTE: Flavor and texture profile. (Both ${targetLang} and Chinese).
+      4. SEARCH_TERMS: 3 keywords for image searching, separated by commas (e.g., "Kung Pao Chicken, 宫保鸡丁, Gong Bao Ji Ding").
 
-      Keep it engaging but concise (under 200 words total).
-      Format: STORY: [Bilingual Text] METHOD: [Bilingual Text] TASTE: [Bilingual Text]
+      Format: STORY: [Text] METHOD: [Text] TASTE: [Text] SEARCH_TERMS: [Keywords]
     `;
 
     const result = await model.generateContent(prompt);

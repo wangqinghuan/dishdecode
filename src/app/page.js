@@ -217,9 +217,12 @@ function ResultsList({ results, onReset, onDishClick }) {
 
 function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
+  const [imgUrl, setImgUrl] = useState(null);
 
   useEffect(() => {
     async function fetchInfo() {
+      // 1. 获取 AI 文字内容和搜索词
+      let searchTerms = [dish.nameEN, dish.nameCN];
       try {
         const detailRes = await fetch('/api/details', {
           method: 'POST',
@@ -228,8 +231,58 @@ function DishDetail({ dish, targetLang, onClose }) {
         });
         const detailData = await detailRes.json();
         setDetails(detailData.text);
+        
+        // 解析 SEARCH_TERMS
+        const match = detailData.text.match(/SEARCH_TERMS:\s*(.*)/i);
+        if (match?.[1]) {
+          const aiTerms = match[1].split(',').map(t => t.trim());
+          searchTerms = [...new Set([...aiTerms, ...searchTerms])];
+        }
       } catch (e) {
         console.error("Detail AI fetch failed", e);
+      }
+
+      // 2. 深度搜索图片 (三源策略：zh.wiki -> en.wiki -> Wikimedia Commons)
+      try {
+        let foundImg = null;
+        
+        // 尝试维基百科 (中/英)
+        for (const lang of ['zh', 'en']) {
+          if (foundImg) break;
+          for (const term of searchTerms) {
+            try {
+              const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term.replace(/ /g, '_'))}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.originalimage?.source) {
+                  foundImg = data.originalimage.source;
+                  break;
+                }
+              }
+            } catch (innerE) {}
+          }
+        }
+
+        // 如果还没图，尝试维基媒体共享库直接搜索 (Wikimedia Commons Search)
+        if (!foundImg) {
+          for (const term of searchTerms) {
+            try {
+              const res = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrnamespace=6&gsrlimit=1&prop=imageinfo&iiprop=url`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.query?.pages) {
+                  const pages = data.query.pages;
+                  const firstPageId = Object.keys(pages)[0];
+                  foundImg = pages[firstPageId].imageinfo[0].url;
+                  break;
+                }
+              }
+            } catch (innerE) {}
+          }
+        }
+        setImgUrl(foundImg);
+      } catch (e) {
+        console.error("Total img fetch failed", e);
       }
     }
     fetchInfo();
@@ -237,7 +290,7 @@ function DishDetail({ dish, targetLang, onClose }) {
 
   const parseDetails = (text) => {
     if (!text) return null;
-    const parts = text.split(/(STORY:|METHOD:|TASTE:)/i).map(p => p.trim());
+    const parts = text.split(/(STORY:|METHOD:|TASTE:|SEARCH_TERMS:)/i).map(p => p.trim());
     const res = {};
     for (let i = 1; i < parts.length; i += 2) {
       const key = parts[i].replace(':', '').toLowerCase();
@@ -254,6 +307,21 @@ function DishDetail({ dish, targetLang, onClose }) {
         <div className="sheet-handle"></div>
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
+        <div className="detail-img-container">
+          {imgUrl ? (
+            <img 
+              src={imgUrl} 
+              alt={dish.nameEN} 
+              onError={() => setImgUrl(null)}
+            />
+          ) : (
+            <div className="placeholder-img">
+              <Camera size={40} color="rgba(200,60,35,0.15)" />
+              <span>Seeking visual imagery...</span>
+            </div>
+          )}
+        </div>
+
         <div className="detail-content">
           <div className="detail-header">
             <span className="detail-cn">{dish.nameCN}</span>
@@ -263,12 +331,12 @@ function DishDetail({ dish, targetLang, onClose }) {
           <div className="detail-body">
             {parsed ? (
               <>
-                {parsed.story && <div className="info-block"><strong>History & Story</strong> <p>{parsed.story}</p></div>}
+                {parsed.story && <div className="info-block"><strong>The Story</strong> <p>{parsed.story}</p></div>}
                 {parsed.method && <div className="info-block"><strong>Culinary Method</strong> <p>{parsed.method}</p></div>}
                 {parsed.taste && <div className="info-block"><strong>Palate & Texture</strong> <p>{parsed.taste}</p></div>}
               </>
             ) : (
-              <p className="loading-text">Decoding cultural stories into {targetLang}...</p>
+              <p className="loading-text">Decoding culinary secrets into {targetLang}...</p>
             )}
             
             <div className="detail-tags">
@@ -288,6 +356,9 @@ function DishDetail({ dish, targetLang, onClose }) {
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
+        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 280px; overflow: hidden; background: #f0f0f0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .detail-img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #ccc; font-size: 14px; font-weight: 500; }
         .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
         .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
         .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
