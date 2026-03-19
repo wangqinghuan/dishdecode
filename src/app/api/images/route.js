@@ -1,69 +1,57 @@
 export async function POST(req) {
   try {
     const { nameCN } = await req.json();
+    // 强制加入“美食、菜谱”后缀，确保搜到的是食物
+    const query = `${nameCN} 菜谱实拍`;
     
-    // 策略：组合搜索。不仅搜菜名，还搜“菜名 美食”以获取更精确的页面
-    const searchQueries = [nameCN, `${nameCN} 美食`];
-    let imageUrls = [];
-
-    for (const query of searchQueries) {
-      if (imageUrls.length >= 3) break;
-
-      const searchUrl = `https://zh.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=3&prop=pageimages|images&pithumbsize=1000`;
-      const res = await fetch(searchUrl);
-      const data = await res.json();
-
-      if (data.query?.pages) {
-        const pages = Object.values(data.query.pages);
-        
-        for (const page of pages) {
-          // 1. 抓取页面的主图
-          if (page.thumbnail?.source && !imageUrls.includes(page.thumbnail.source)) {
-            imageUrls.push(page.thumbnail.source);
-          }
-
-          // 2. 深入抓取页面内的其他图片 (限制数量)
-          if (imageUrls.length < 3 && page.images) {
-            const imageTitles = page.images
-              .map(img => img.title)
-              .filter(title => /\.(jpg|jpeg|png)$/i.test(title) && !/(icon|logo|stub|map|flag)/i.test(title))
-              .slice(0, 3);
-
-            if (imageTitles.length > 0) {
-              const detailUrl = `https://zh.wikipedia.org/w/api.php?action=query&format=json&origin=*&titles=${encodeURIComponent(imageTitles.join('|'))}&prop=imageinfo&iiprop=url&iiurlwidth=1000`;
-              const detailRes = await fetch(detailUrl);
-              const detailData = await detailRes.json();
-              
-              if (detailData.query?.pages) {
-                Object.values(detailData.query.pages).forEach(p => {
-                  if (p.imageinfo?.[0]?.url && !imageUrls.includes(p.imageinfo[0].url) && imageUrls.length < 3) {
-                    imageUrls.push(p.imageinfo[0].url);
-                  }
-                });
-              }
-            }
-          }
-          if (imageUrls.length >= 3) break;
-        }
+    // 1. 获取 vqd (DuckDuckGo 的搜索会话令牌)
+    // 加入更真实的 User-Agent 和 Referer
+    const vqdRes = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://duckduckgo.com/'
       }
+    });
+    
+    const text = await vqdRes.text();
+    const vqdMatch = text.match(/vqd="([^"]+)"/) || text.match(/vqd=([^&]+)/);
+    
+    if (!vqdMatch) {
+      console.error("VQD not found, possible bot detection");
+      return new Response(JSON.stringify({ images: [], error: "Search throttled" }), { status: 200 });
     }
+    
+    const vqd = vqdMatch[1];
 
-    // 最后保底：如果图片还是不足 3 张，尝试英文维基的主图作为补充
-    if (imageUrls.length < 3) {
-      const enRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(nameCN)}`);
-      if (enRes.ok) {
-        const enData = await enRes.json();
-        if (enData.originalimage?.source && !imageUrls.includes(enData.originalimage.source)) {
-          imageUrls.push(enData.originalimage.source);
-        }
+    // 2. 调用 DDG 的 JSON 接口获取图片
+    const apiUrl = `https://duckduckgo.com/i.js?q=${encodeURIComponent(query)}&o=json&vqd=${vqd}&f=,,,`;
+    const apiRes = await fetch(apiUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        'Referer': 'https://duckduckgo.com/'
       }
-    }
+    });
 
-    return new Response(JSON.stringify({ images: imageUrls.slice(0, 3) }), {
+    const data = await apiRes.json();
+    
+    // 3. 提取并过滤图片
+    const images = (data.results || [])
+      .filter(r => {
+        const url = r.image.toLowerCase();
+        // 排除掉明显的非食物干扰项
+        return !url.includes('logo') && !url.includes('icon') && !url.includes('wiki');
+      })
+      .slice(0, 3)
+      .map(r => r.image);
+
+    return new Response(JSON.stringify({ images }), {
       headers: { "Content-Type": "application/json" },
     });
     
   } catch (error) {
-    return new Response(JSON.stringify({ images: [], error: error.message }), { status: 500 });
+    console.error("DDG Error:", error.message);
+    return new Response(JSON.stringify({ images: [], error: error.message }), { status: 200 });
   }
 }
