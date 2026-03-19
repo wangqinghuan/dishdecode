@@ -191,25 +191,61 @@ function ResultsList({ results, onReset, onDishClick }) {
 }
 
 function DishDetail({ dish, onClose }) {
-  const [wikiData, setWikiData] = useState({ img: null, desc: 'Searching for culinary secrets...' });
+  const [wikiData, setWikiData] = useState({ img: null, desc: 'Unlocking culinary secrets...' });
+  const [details, setDetails] = useState(null);
 
   useEffect(() => {
     async function fetchInfo() {
+      // 1. 获取 AI 生成的文化背景和做法
       try {
-        const title = dish.nameEN.replace(/ /g, '_');
-        const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
-        const data = await res.json();
-        
-        setWikiData({
-          img: data.originalimage?.source || null,
-          desc: data.extract || `A delicious Chinese dish: ${dish.nameCN}. It features a ${dish.flavor} flavor profile.`
+        const detailRes = await fetch('/api/details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN })
         });
+        const detailData = await detailRes.json();
+        setDetails(detailData.text);
       } catch (e) {
-        setWikiData({ img: null, desc: `A delicious Chinese dish: ${dish.nameCN}.` });
+        console.error("Detail AI fetch failed", e);
+      }
+
+      // 2. 获取 Wikipedia 真实图片 (尝试多种名称匹配)
+      try {
+        const searchTerms = [dish.nameEN, dish.nameCN, dish.nameEN.replace(/ /g, '_')];
+        let foundImg = null;
+        
+        for (const term of searchTerms) {
+          const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.originalimage?.source) {
+              foundImg = data.originalimage.source;
+              break;
+            }
+          }
+        }
+        setWikiData(prev => ({ ...prev, img: foundImg }));
+      } catch (e) {
+        console.error("Wiki img fetch failed", e);
       }
     }
     fetchInfo();
   }, [dish]);
+
+  // 解析 STORY, METHOD, TASTE 文本
+  const parseDetails = (text) => {
+    if (!text) return null;
+    const sections = text.split(/(STORY:|METHOD:|TASTE:)/g).filter(s => s.trim());
+    const result = {};
+    for (let i = 0; i < sections.length; i += 2) {
+      const key = sections[i].replace(':', '').trim().toLowerCase();
+      const val = sections[i+1]?.trim();
+      if (key && val) result[key] = val;
+    }
+    return result;
+  };
+
+  const parsed = parseDetails(details);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
@@ -217,11 +253,16 @@ function DishDetail({ dish, onClose }) {
         <div className="sheet-handle"></div>
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
-        {wikiData.img && (
-          <div className="detail-img-container">
+        <div className="detail-img-container">
+          {wikiData.img ? (
             <img src={wikiData.img} alt={dish.nameEN} />
-          </div>
-        )}
+          ) : (
+            <div className="placeholder-img">
+              <MessageCircle size={40} color="rgba(200,60,35,0.2)" />
+              <span>Fetching vivid imagery...</span>
+            </div>
+          )}
+        </div>
 
         <div className="detail-content">
           <div className="detail-header">
@@ -230,7 +271,16 @@ function DishDetail({ dish, onClose }) {
           </div>
           
           <div className="detail-body">
-            <p>{wikiData.desc}</p>
+            {parsed ? (
+              <>
+                {parsed.story && <div className="info-block"><strong>The Story:</strong> <p>{parsed.story}</p></div>}
+                {parsed.method && <div className="info-block"><strong>How It's Made:</strong> <p>{parsed.method}</p></div>}
+                {parsed.taste && <div className="info-block"><strong>The Taste:</strong> <p>{parsed.taste}</p></div>}
+              </>
+            ) : (
+              <p className="loading-text">Unlocking culinary secrets and cultural stories...</p>
+            )}
+            
             <div className="detail-tags">
               <span className="tag">{dish.flavor}</span>
               <span className="tag">Spiciness: {dish.spiciness}/5</span>
@@ -239,23 +289,27 @@ function DishDetail({ dish, onClose }) {
         </div>
       </div>
       <style jsx>{`
-        .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: flex-end; backdrop-filter: blur(2px); }
+        .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: flex-end; backdrop-filter: blur(4px); }
         .detail-sheet { 
           background: #fcfaf2; width: 100%; border-radius: 24px 24px 0 0; 
-          padding: 24px; position: relative; max-height: 85vh; overflow-y: auto;
-          box-shadow: 0 -10px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 24px; position: relative; max-height: 90vh; overflow-y: auto;
+          box-shadow: 0 -10px 40px rgba(0,0,0,0.2); animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
-        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 280px; overflow: hidden; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; overflow: hidden; border-bottom: 1px solid rgba(0,0,0,0.05); background: #eee; position: relative; }
         .detail-img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .detail-header { margin-bottom: 16px; }
-        .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 18px; }
-        .detail-header h2 { font-size: 28px; line-height: 1.2; margin-top: 4px; color: #1a1a1b; }
-        .detail-body p { color: #444; line-height: 1.7; font-size: 16px; margin-bottom: 24px; }
-        .detail-tags { display: flex; gap: 8px; }
-        .tag { background: #eee; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #666; }
+        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #999; font-size: 14px; font-weight: 500; }
+        .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
+        .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
+        .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
+        .info-block { margin-bottom: 24px; }
+        .info-block strong { display: block; font-size: 13px; text-transform: uppercase; color: #c83c23; letter-spacing: 1px; margin-bottom: 6px; }
+        .info-block p { color: #444; line-height: 1.6; font-size: 16px; }
+        .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
+        .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
+        .tag { background: #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
       `}</style>
     </div>
   );
