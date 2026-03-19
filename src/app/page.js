@@ -221,10 +221,10 @@ function DishDetail({ dish, targetLang, onClose }) {
 
   useEffect(() => {
     let isMounted = true;
+    const cacheKey = `detail_${dish.nameCN}_${targetLang}`;
+    
     async function fetchInfo() {
-      const cacheKey = `detail_${dish.nameCN}_${targetLang}`;
       const cached = localStorage.getItem(cacheKey);
-      
       if (cached) {
         const parsedCache = JSON.parse(cached);
         if (isMounted) setDetails(parsedCache.text);
@@ -244,9 +244,12 @@ function DishDetail({ dish, targetLang, onClose }) {
         }
 
         const detailData = await detailRes.json();
+        
+        // 关键修复：无论组件是否被卸载，都要把数据存入缓存，供下次打开使用
+        localStorage.setItem(cacheKey, JSON.stringify({ text: detailData.text }));
+        
         if (isMounted) {
           setDetails(detailData.text);
-          localStorage.setItem(cacheKey, JSON.stringify({ text: detailData.text }));
         }
       } catch (e) {
         console.error("Detail AI fetch failed", e);
@@ -254,7 +257,7 @@ function DishDetail({ dish, targetLang, onClose }) {
     }
     fetchInfo();
     return () => { isMounted = false; };
-  }, [dish.nameCN, targetLang]); // 修正依赖项，防止重复请求
+  }, [dish.nameCN, targetLang]);
 
   const parsed = useMemo(() => {
     if (!details) return null;
