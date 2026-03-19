@@ -2,69 +2,69 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 45;
 
+// 定义一个候选模型列表，按优先级排序
+const CANDIDATE_MODELS = [
+  "gemini-2.0-flash-lite", 
+  "gemini-flash-lite-latest",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-lite"
+];
+
 export async function POST(req) {
   try {
     const { image, prefs, targetLang = 'English' } = await req.json();
     const base64Data = image.split(',')[1];
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
+    
     const prompt = `
       ACT AS A RAW DATA EXTRACTOR. 
       TASK: Convert EVERY visible dish in this image into a JSON list.
       TARGET LANGUAGE: ${targetLang}
-      
-      RULES:
-      1. INCLUDE EVERY ITEM. DO NOT SKIP.
-      2. nameCN: Original Chinese name.
-      3. nameEN: Concise translation in ${targetLang}.
-      4. price: Numeric value (e.g. 28.5).
-      5. ingredients: ["${targetLang}|中文"] (Top 3 only).
-      6. flavor: 1 word in ${targetLang}.
-      7. status: "danger" if contains ${prefs.allergens.join(',')}, "warning" if contains ${prefs.dislikes.join(',')}, else "safe".
-
-      OUTPUT FORMAT:
-      {"items": [
-        {
-          "nameCN": "...",
-          "nameEN": "...",
-          "price": 0,
-          "ingredients": [],
-          "flavor": "...",
-          "spiciness": 0,
-          "status": "..."
-        }
-      ]}
-      
+      RULES: INCLUDE EVERY ITEM. DO NOT SKIP.
+      OUTPUT FORMAT: {"items": [{"nameCN": "...", "nameEN": "...", "price": 0, "ingredients": ["${targetLang}|中文"], "flavor": "...", "spiciness": 0, "status": "..."}]}
       Return ONLY the JSON. Start immediately with {"items": [
     `;
 
-    // 使用流式生成
-    const result = await model.generateContentStream([
-      prompt,
-      { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-    ]);
+    // 尝试模型轮换逻辑
+    let lastError = null;
+    for (const modelId of CANDIDATE_MODELS) {
+      try {
+        console.log(`>>> Trying model: ${modelId}`);
+        const model = genAI.getGenerativeModel({ model: modelId });
+        
+        const result = await model.generateContentStream([
+          prompt,
+          { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+        ]);
 
-    // 创建一个可读流返回给前端
-    const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-        try {
-          for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
-            controller.enqueue(encoder.encode(chunkText));
-          }
-          controller.close();
-        } catch (e) {
-          controller.error(e);
-        }
-      },
-    });
+        const stream = new ReadableStream({
+          async start(controller) {
+            const encoder = new TextEncoder();
+            try {
+              for await (const chunk of result.stream) {
+                controller.enqueue(encoder.encode(chunk.text()));
+              }
+              controller.close();
+            } catch (e) {
+              controller.error(e);
+            }
+          },
+        });
 
-    return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+        return new Response(stream, {
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      } catch (e) {
+        lastError = e;
+        console.error(`Model ${modelId} failed:`, e.message);
+        // 如果是权限或配额问题，继续试下一个
+        continue;
+      }
+    }
+
+    // 如果所有模型都试过了还是不行
+    return new Response(JSON.stringify({ error: "All AI models are exhausted today. Please try tomorrow.", detail: lastError?.message }), { status: 429 });
     
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
