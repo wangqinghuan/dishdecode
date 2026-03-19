@@ -1,57 +1,37 @@
 export async function POST(req) {
   try {
     const { nameCN } = await req.json();
-    // 强制加入“美食、菜谱”后缀，确保搜到的是食物
-    const query = `${nameCN} 菜谱实拍`;
     
-    // 1. 获取 vqd (DuckDuckGo 的搜索会话令牌)
-    // 加入更真实的 User-Agent 和 Referer
-    const vqdRes = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://duckduckgo.com/'
-      }
-    });
-    
-    const text = await vqdRes.text();
-    const vqdMatch = text.match(/vqd="([^"]+)"/) || text.match(/vqd=([^&]+)/);
-    
-    if (!vqdMatch) {
-      console.error("VQD not found, possible bot detection");
-      return new Response(JSON.stringify({ images: [], error: "Search throttled" }), { status: 200 });
-    }
-    
-    const vqd = vqdMatch[1];
+    // 使用百度图片搜索 API (acjson 接口是目前最稳定且返回 JSON 的接口)
+    // tn=resultjson_com: 返回 JSON 格式
+    // ipn=rj: 手机端/网页端标志
+    // rn=30: 请求 30 条结果，方便我们筛选
+    const baiduUrl = `https://image.baidu.com/search/acjson?tn=resultjson_com&ipn=rj&word=${encodeURIComponent(nameCN + " 菜谱实拍")}&rn=30`;
 
-    // 2. 调用 DDG 的 JSON 接口获取图片
-    const apiUrl = `https://duckduckgo.com/i.js?q=${encodeURIComponent(query)}&o=json&vqd=${vqd}&f=,,,`;
-    const apiRes = await fetch(apiUrl, {
+    const res = await fetch(baiduUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-        'Referer': 'https://duckduckgo.com/'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://image.baidu.com/'
       }
     });
 
-    const data = await apiRes.json();
+    const data = await res.json();
     
-    // 3. 提取并过滤图片
-    const images = (data.results || [])
-      .filter(r => {
-        const url = r.image.toLowerCase();
-        // 排除掉明显的非食物干扰项
-        return !url.includes('logo') && !url.includes('icon') && !url.includes('wiki');
-      })
-      .slice(0, 3)
-      .map(r => r.image);
+    // 百度返回的图片字段通常是 thumbURL (缩略图) 或 middleURL (中图)
+    // hoverURL 通常更清晰
+    const images = (data.data || [])
+      .filter(item => item.thumbURL || item.middleURL)
+      .map(item => item.middleURL || item.thumbURL)
+      .filter(url => url && !url.includes('logo') && !url.includes('icon'))
+      .slice(0, 3);
 
     return new Response(JSON.stringify({ images }), {
       headers: { "Content-Type": "application/json" },
     });
     
   } catch (error) {
-    console.error("DDG Error:", error.message);
-    return new Response(JSON.stringify({ images: [], error: error.message }), { status: 200 });
+    console.error("Baidu Sniffer Error:", error.message);
+    return new Response(JSON.stringify({ images: [], error: error.message }), { status: 500 });
   }
 }
