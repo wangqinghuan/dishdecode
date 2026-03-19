@@ -8,12 +8,13 @@ export async function POST(req) {
     const allKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
     const shuffledKeys = allKeys.sort(() => Math.random() - 0.5);
 
-    // 极简提示词，追求速度和直观
+    // 平衡深度与速度的提示词
     const prompt = `
-      Dish: "${nameCN}" (${nameEN}). Provide info in ${targetLang} & Chinese.
-      1. STORY: 1 short sentence origin.
-      2. METHOD: 1 short sentence how it's cooked.
-      3. TASTE: 1-3 descriptive words.
+      Dish: "${nameCN}" (${nameEN}). Provide info in BILINGUAL (${targetLang} & Chinese).
+      1. STORY: 2 sentences about origin/naming.
+      2. METHOD: 2 sentences on how it's cooked.
+      3. TASTE: Key flavor notes.
+      
       Format: STORY: [Bilingual] | METHOD: [Bilingual] | TASTE: [Bilingual]
     `;
 

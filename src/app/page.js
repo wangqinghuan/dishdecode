@@ -43,7 +43,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vSlim_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     
     if (cached) {
@@ -175,12 +175,10 @@ export default function Home() {
       <style jsx global>{`
         .custom-lang-selector { position: relative; z-index: 50; }
         .lang-btn { background: #f0f0f0; border: none; padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; cursor: pointer; color: #1a1a1b; transition: all 0.2s; }
-        .lang-btn:active { transform: scale(0.95); }
         .lang-btn .rotate { transform: rotate(180deg); }
         .lang-dropdown { position: absolute; right: 0; top: 40px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #eee; min-width: 160px; overflow: hidden; animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .lang-option { padding: 12px 16px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
-        .lang-option:last-child { border: none; }
         .lang-option:hover { background: #fcfaf2; color: #c83c23; }
         
         .scan-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
@@ -188,6 +186,9 @@ export default function Home() {
         @keyframes scanAnim { 0% { top: 0%; } 100% { top: 100%; } }
         .preview-container { position: relative; border-radius: 12px; overflow: hidden; margin: 0 20px 20px; max-height: 180px; }
         .preview-container img { width: 100%; height: auto; display: block; filter: brightness(0.7); }
+        
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
       `}</style>
     </div>
   );
@@ -215,9 +216,20 @@ function ResultsList({ results, currency, onReset, onDishClick }) {
                   <span className="converted">{currency.symbol}{converted}</span>
                 </div>
               </div>
-              <h4>{dish.nameEN}</h4>
+              <h4 style={{ marginBottom: '8px' }}>{dish.nameEN}</h4>
+              
+              <div className="ingredients-box" style={{ padding: '8px', marginBottom: '10px', background: '#f9f9f9' }}>
+                <div className="ingredients" style={{ fontSize: '12px' }}>
+                  {dish.ingredients?.map((ing, idx) => {
+                    const [en, cn] = typeof ing === 'string' ? ing.split('|') : [];
+                    return <span key={idx} className="ing-item">{en} <small style={{opacity: 0.5}}>{cn}</small>{idx < dish.ingredients.length - 1 ? ', ' : ''}</span>
+                  })}
+                </div>
+              </div>
+
               <div className="dish-meta">
                 <span className="tag">{dish.flavor}</span>
+                <span className="tag">Spiciness: {dish.spiciness}/5</span>
               </div>
             </div>
           );
@@ -226,7 +238,7 @@ function ResultsList({ results, currency, onReset, onDishClick }) {
       <style jsx>{`
         .dish-price { display: flex; flex-direction: column; align-items: flex-end; }
         .cny { font-size: 15px; font-weight: 800; color: #1a1a1b; }
-        .converted { font-size: 11px; color: #949495; font-weight: normal; }
+        .converted { font-size: 11px; color: #c83c23; font-weight: bold; }
       `}</style>
     </div>
   );
@@ -302,17 +314,14 @@ function DishDetail({ dish, data, onClose }) {
         .carousel-item { flex: 0 0 100%; scroll-snap-align: start; height: 100%; }
         .carousel-item img { width: 100%; height: 100%; object-fit: cover; }
         
-        .skeleton-gallery { height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        .skeleton-gallery { height: 100%; display: flex; align-items: center; justify-content: center; background: #f5f5f5; }
         .skeleton-text { margin-top: 10px; }
-        .s-line { height: 14px; background: #eee; margin-bottom: 12px; border-radius: 4px; animation: shimmer 1.5s infinite; }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .spin { animation: spin 1s linear infinite; color: #c83c23; opacity: 0.5; }
+        .s-line { height: 14px; background: #eee; margin-bottom: 12px; border-radius: 4px; }
 
         .detail-header h2 { font-size: 28px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; }
         .slim-block { margin-bottom: 18px; }
         .slim-block strong { font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1px; }
-        .slim-block p { color: #444; font-size: 15px; margin-top: 2px; }
+        .slim-block p { color: #444; font-size: 15px; margin-top: 2px; line-height: 1.6; }
         .tag { background: white; border: 1px solid #eee; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #666; }
       `}</style>
     </div>
