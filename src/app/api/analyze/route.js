@@ -8,7 +8,7 @@ export async function POST(req) {
     const base64Data = image.split(',')[1];
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     const prompt = `
       ACT AS A RAW DATA EXTRACTOR. 
