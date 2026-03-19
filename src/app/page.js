@@ -148,7 +148,7 @@ export default function Home() {
 
       {selectedDish && (
         <DishDetail 
-          key={selectedDish.nameCN + targetLang} 
+          key={`${selectedDish.nameCN}_${targetLang}`}
           dish={selectedDish} 
           targetLang={targetLang}
           onClose={() => setSelectedDish(null)} 
@@ -220,15 +220,15 @@ function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
   const [images, setImages] = useState([]);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
-  const [loading, setLoading] = useState(true); // 默认设为 true
-  const initialFetchRef = useRef(false);
+  const [loading, setLoading] = useState(true);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    if (initialFetchRef.current) return;
-    initialFetchRef.current = true;
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
 
     let isMounted = true;
-    const cacheKey = `detail_v5_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     
     if (cached) {
@@ -240,6 +240,7 @@ function DishDetail({ dish, targetLang, onClose }) {
     }
 
     async function fetchAll() {
+      setLoading(true);
       try {
         const [detailRes, imgRes] = await Promise.all([
           fetch('/api/details', {
@@ -255,10 +256,7 @@ function DishDetail({ dish, targetLang, onClose }) {
         ]);
         
         if (detailRes.status === 429) {
-          if (isMounted) {
-            setIsQuotaExceeded(true);
-            setLoading(false);
-          }
+          if (isMounted) setIsQuotaExceeded(true);
           return;
         }
 
@@ -285,14 +283,29 @@ function DishDetail({ dish, targetLang, onClose }) {
     return () => { isMounted = false; };
   }, [dish.nameCN, targetLang]);
 
-  // 改进的解析逻辑，确保即时渲染
+  // 【核心修复】极强容错的文本解析逻辑
   const parsed = useMemo(() => {
     if (!details) return null;
-    const parts = details.split(/(STORY:|METHOD:|TASTE:)/i).map(p => p.trim());
     const res = {};
-    for (let i = 1; i < parts.length; i += 2) {
-      const key = parts[i].replace(':', '').toLowerCase();
-      res[key] = parts[i+1];
+    const patterns = {
+      story: /(STORY:|1\.\s*STORY:|History:|Background:)/i,
+      method: /(METHOD:|2\.\s*METHOD:|Cooking:|Instructions:)/i,
+      taste: /(TASTE:|3\.\s*TASTE:|Flavor:|Profile:)/i
+    };
+
+    // 寻找每个部分的起始位置
+    const sections = details.split(/(STORY:|METHOD:|TASTE:|1\.\s*STORY:|2\.\s*METHOD:|3\.\s*TASTE:)/i);
+    for (let i = 1; i < sections.length; i += 2) {
+      let key = sections[i].toLowerCase();
+      if (key.includes('story')) key = 'story';
+      else if (key.includes('method')) key = 'method';
+      else if (key.includes('taste')) key = 'taste';
+      res[key] = sections[i + 1]?.split(/\n\n|STORY:|METHOD:|TASTE:/i)[0].trim();
+    }
+    
+    // 如果解析失败，直接显示原文
+    if (!res.story && !res.method && !res.taste) {
+      return { story: details };
     }
     return res;
   }, [details]);
@@ -304,23 +317,18 @@ function DishDetail({ dish, targetLang, onClose }) {
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
         <div className="detail-gallery-container">
-          {!loading && images.length > 0 ? (
+          {images.length > 0 ? (
             <div className="image-carousel">
               {images.map((url, idx) => (
                 <div key={idx} className="carousel-item">
-                  <img 
-                    src={url} 
-                    alt={`${dish.nameEN} ${idx}`} 
-                    referrerPolicy="no-referrer"
-                    loading="eager"
-                  />
+                  <img src={url} alt={`${dish.nameEN} ${idx}`} referrerPolicy="no-referrer" loading="eager" />
                 </div>
               ))}
             </div>
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{loading ? 'Fetching dish photos...' : 'Seeking inspiration...'}</span>
+              <span>{loading ? 'Authenticating dish photos...' : 'Seeking inspiration...'}</span>
             </div>
           )}
         </div>
@@ -334,17 +342,17 @@ function DishDetail({ dish, targetLang, onClose }) {
           <div className="detail-body">
             {isQuotaExceeded ? (
               <div className="quota-error">
-                <p><strong>Limit reached.</strong></p>
-                <p>AI is resting. Try again tomorrow!</p>
+                <p><strong>Daily limit reached.</strong></p>
+                <p>AI chef is resting. Please try again tomorrow!</p>
               </div>
             ) : parsed ? (
               <>
-                {parsed.story && <div className="info-block"><strong>Story</strong> <p>{parsed.story}</p></div>}
-                {parsed.method && <div className="info-block"><strong>How It's Made</strong> <p>{parsed.method}</p></div>}
-                {parsed.taste && <div className="info-block"><strong>Palate</strong> <p>{parsed.taste}</p></div>}
+                {parsed.story && <div className="info-block"><strong>Heritage</strong> <p>{parsed.story}</p></div>}
+                {parsed.method && <div className="info-block"><strong>Creation</strong> <p>{parsed.method}</p></div>}
+                {parsed.taste && <div className="info-block"><strong>Essence</strong> <p>{parsed.taste}</p></div>}
               </>
             ) : (
-              <p className="loading-text">Decoding culinary secrets...</p>
+              <p className="loading-text">Unfolding culinary secrets...</p>
             )}
             
             <div className="detail-tags">
