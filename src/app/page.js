@@ -24,6 +24,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [userPrefs, setUserPrefs] = useState({ allergens: [], dislikes: [] });
   const [selectedDish, setSelectedDish] = useState(null);
+  const [dishDetailData, setDishDetailData] = useState({ text: null, images: [], loading: false });
   const [targetLang, setTargetLang] = useState('English');
 
   useEffect(() => {
@@ -36,6 +37,44 @@ export default function Home() {
   const handleLangChange = (e) => {
     setTargetLang(e.target.value);
     localStorage.setItem('dishdecode_lang', e.target.value);
+  };
+
+  // 关键修复：将详情获取逻辑移出组件内部，由点击事件触发，确保只执行一次
+  const handleDishClick = async (dish) => {
+    setSelectedDish(dish);
+    const cacheKey = `detail_vFinal_${dish.nameCN}_${targetLang}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      const p = JSON.parse(cached);
+      setDishDetailData({ text: p.text, images: p.images || [], loading: false });
+      return;
+    }
+
+    setDishDetailData({ text: null, images: [], loading: true });
+    try {
+      const [dRes, iRes] = await Promise.all([
+        fetch('/api/details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang })
+        }),
+        fetch('/api/images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nameCN: dish.nameCN })
+        })
+      ]);
+
+      const dData = await dRes.json();
+      const iData = await iRes.json();
+      const proxiedImages = (iData.images || []).map(url => `/api/images/proxy?url=${encodeURIComponent(url)}`);
+      
+      localStorage.setItem(cacheKey, JSON.stringify({ text: dData.text, images: proxiedImages }));
+      setDishDetailData({ text: dData.text, images: proxiedImages, loading: false });
+    } catch (e) {
+      setDishDetailData(prev => ({ ...prev, loading: false }));
+    }
   };
 
   const onFileChange = (e) => {
@@ -110,7 +149,7 @@ export default function Home() {
               <img src={image} alt="Preview" />
               {loading && <div className="scan-loader"><div className="line"></div><span>Decoding...</span></div>}
             </div>
-            {results.items.length > 0 && <ResultsList results={results} onReset={reset} onDishClick={setSelectedDish} />}
+            {results.items.length > 0 && <ResultsList results={results} onReset={reset} onDishClick={handleDishClick} />}
           </div>
         )}
       </main>
@@ -118,7 +157,7 @@ export default function Home() {
       {selectedDish && (
         <DishDetail 
           dish={selectedDish} 
-          targetLang={targetLang}
+          data={dishDetailData}
           onClose={() => setSelectedDish(null)} 
         />
       )}
@@ -162,64 +201,17 @@ function ResultsList({ results, onReset, onDishClick }) {
   );
 }
 
-function DishDetail({ dish, targetLang, onClose }) {
-  const [state, setState] = useState({ details: null, images: [], loading: true, error: false });
-
-  useEffect(() => {
-    let active = true;
-    const cacheKey = `detail_vPROXY_${dish.nameCN}_${targetLang}`;
-    const cached = localStorage.getItem(cacheKey);
-    
-    if (cached) {
-      const p = JSON.parse(cached);
-      setState({ details: p.text, images: p.images || [], loading: false, error: false });
-      return;
-    }
-
-    async function fetchData() {
-      try {
-        const [dRes, iRes] = await Promise.all([
-          fetch('/api/details', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang })
-          }),
-          fetch('/api/images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nameCN: dish.nameCN })
-          })
-        ]);
-
-        const dData = await dRes.json();
-        const iData = await iRes.json();
-        
-        // 关键修复：图片链接通过我们的后端 Proxy 转发，绕过防盗链
-        const proxiedImages = (iData.images || []).map(url => `/api/images/proxy?url=${encodeURIComponent(url)}`);
-        
-        localStorage.setItem(cacheKey, JSON.stringify({ text: dData.text, images: proxiedImages }));
-        
-        if (active) {
-          setState({ details: dData.text, images: proxiedImages, loading: false, error: false });
-        }
-      } catch (e) {
-        if (active) setState(s => ({ ...s, loading: false, error: true }));
-      }
-    }
-    fetchData();
-    return () => { active = false; };
-  }, [dish.nameCN, targetLang]);
-
+function DishDetail({ dish, data, onClose }) {
   const parsedText = useMemo(() => {
-    if (!state.details) return null;
+    if (!data.text) return null;
     const res = {};
-    const parts = state.details.split(/(STORY:|METHOD:|TASTE:)/i);
+    const parts = data.text.split(/(STORY:|METHOD:|TASTE:)/i);
     for (let i = 1; i < parts.length; i += 2) {
       const key = parts[i].toLowerCase().replace(':', '');
       res[key] = parts[i+1]?.split(/(STORY:|METHOD:|TASTE:)/i)[0].trim();
     }
-    return (res.story || res.method || res.taste) ? res : { story: state.details };
-  }, [state.details]);
+    return (res.story || res.method || res.taste) ? res : { story: data.text };
+  }, [data.text]);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
@@ -228,10 +220,10 @@ function DishDetail({ dish, targetLang, onClose }) {
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
         <div className="detail-gallery-container">
-          {state.images.length > 0 ? (
+          {data.images.length > 0 ? (
             <div className="image-carousel">
-              {state.images.map((url, idx) => (
-                <div key={idx} className="carousel-item">
+              {data.images.map((url, idx) => (
+                <div key={url + idx} className="carousel-item">
                   <img src={url} alt="Dish" loading="eager" />
                 </div>
               ))}
@@ -239,7 +231,7 @@ function DishDetail({ dish, targetLang, onClose }) {
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="#ccc" />
-              <span>{state.loading ? 'Fetching authentic photos...' : 'No imagery found'}</span>
+              <span>{data.loading ? 'Fetching authentic photos...' : 'No imagery found'}</span>
             </div>
           )}
         </div>
@@ -250,7 +242,7 @@ function DishDetail({ dish, targetLang, onClose }) {
             <h2>{dish.nameEN}</h2>
           </div>
           <div className="detail-body">
-            {state.loading ? (
+            {data.loading ? (
               <p className="loading-text">Decoding culinary secrets...</p>
             ) : (
               <>
