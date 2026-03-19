@@ -14,9 +14,8 @@ export async function POST(req) {
       1. STORY: Cultural origin or naming story.
       2. METHOD: Cooking method and key ingredients.
       3. TASTE: Flavor and texture profile.
-      4. SEARCH_TERMS: One specific Chinese search phrase for food photos.
 
-      Format: STORY: [Bilingual Text] METHOD: [Bilingual Text] TASTE: [Bilingual Text] SEARCH_TERMS: [Phrase]
+      Format: STORY: [Bilingual Text] METHOD: [Bilingual Text] TASTE: [Bilingual Text]
     `;
 
     let lastError = null;

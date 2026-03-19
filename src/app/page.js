@@ -217,26 +217,40 @@ function ResultsList({ results, onReset, onDishClick }) {
 
 function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
+  const [images, setImages] = useState([]);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+  const [loadingImages, setLoadingImages] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    const cacheKey = `detail_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_v2_${dish.nameCN}_${targetLang}`;
     
-    async function fetchInfo() {
+    async function fetchAll() {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const parsedCache = JSON.parse(cached);
-        if (isMounted) setDetails(parsedCache.text);
+        if (isMounted) {
+          setDetails(parsedCache.text);
+          setImages(parsedCache.images || []);
+        }
         return;
       }
 
+      setLoadingImages(true);
       try {
-        const detailRes = await fetch('/api/details', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang })
-        });
+        // 1. 并发获取 AI 文字和图片
+        const [detailRes, imgRes] = await Promise.all([
+          fetch('/api/details', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang })
+          }),
+          fetch('/api/images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nameCN: dish.nameCN })
+          })
+        ]);
         
         if (detailRes.status === 429) {
           if (isMounted) setIsQuotaExceeded(true);
@@ -244,18 +258,26 @@ function DishDetail({ dish, targetLang, onClose }) {
         }
 
         const detailData = await detailRes.json();
+        const imgData = await imgRes.json();
         
-        // 关键修复：无论组件是否被卸载，都要把数据存入缓存，供下次打开使用
-        localStorage.setItem(cacheKey, JSON.stringify({ text: detailData.text }));
+        const newImages = imgData.images || [];
+        
+        localStorage.setItem(cacheKey, JSON.stringify({ 
+          text: detailData.text, 
+          images: newImages 
+        }));
         
         if (isMounted) {
           setDetails(detailData.text);
+          setImages(newImages);
         }
       } catch (e) {
-        console.error("Detail AI fetch failed", e);
+        console.error("Fetch failed", e);
+      } finally {
+        if (isMounted) setLoadingImages(false);
       }
     }
-    fetchInfo();
+    fetchAll();
     return () => { isMounted = false; };
   }, [dish.nameCN, targetLang]);
 
@@ -276,6 +298,23 @@ function DishDetail({ dish, targetLang, onClose }) {
         <div className="sheet-handle"></div>
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
+        <div className="detail-gallery-container">
+          {images.length > 0 ? (
+            <div className="image-carousel">
+              {images.map((url, idx) => (
+                <div key={idx} className="carousel-item">
+                  <img src={url} alt={`${dish.nameEN} ${idx}`} onError={(e) => e.target.style.display='none'} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="placeholder-img">
+              <Camera size={40} color="rgba(200,60,35,0.15)" />
+              <span>{loadingImages ? 'Fetching authentic dish photos...' : 'Seeking visual inspiration...'}</span>
+            </div>
+          )}
+        </div>
+
         <div className="detail-content">
           <div className="detail-header">
             <span className="detail-cn">{dish.nameCN}</span>
@@ -315,13 +354,21 @@ function DishDetail({ dish, targetLang, onClose }) {
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
+        
+        .detail-gallery-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; background: #f0f0f0; position: relative; }
+        .image-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; height: 100%; scrollbar-width: none; }
+        .image-carousel::-webkit-scrollbar { display: none; }
+        .carousel-item { flex: 0 0 100%; scroll-snap-align: start; height: 100%; }
+        .carousel-item img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
         .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
         .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
         .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
         .info-block { margin-bottom: 24px; }
         .info-block strong { display: block; font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 800; }
         .info-block p { color: #333; line-height: 1.7; font-size: 16px; white-space: pre-wrap; }
-        .loading-text { color: #999; font-style: italic; text-align: center; margin: 60px 0; }
+        .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
         .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
         .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
         .quota-error { background: #fff5f5; border: 1px solid #feb2b2; padding: 16px; border-radius: 12px; text-align: center; }
