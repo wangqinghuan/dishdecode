@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const PRODUCTION_MODEL = "gemini-2.0-flash";
+const PRODUCTION_MODEL = "gemini-2.5-flash-lite";
 
 export async function POST(req) {
   try {

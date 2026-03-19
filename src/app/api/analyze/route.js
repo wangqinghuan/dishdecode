@@ -2,8 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 45;
 
-// 修正为 2026 环境下真实可用的稳定模型
-const PRODUCTION_MODEL = "gemini-2.0-flash";
+// 2026 性价比之王，适合大规模低成本运营
+const PRODUCTION_MODEL = "gemini-2.5-flash-lite";
 
 export async function POST(req) {
   try {
