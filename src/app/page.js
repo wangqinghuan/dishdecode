@@ -21,7 +21,7 @@ export default function Home() {
     if (!file) return;
 
     setError(null);
-    setResults(null);
+    setResults({ items: [] });
     
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -36,13 +36,40 @@ export default function Home() {
           body: JSON.stringify({ image: base64, prefs: userPrefs }),
         });
         
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || data.error || "Server Error");
+        if (!response.ok) throw new Error("Server Error");
 
-        if (data.items) {
-          setResults(data);
-        } else {
-          throw new Error("Analysis failed to produce results.");
+        // 流式读取逻辑
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let processedIndex = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // 寻找完整的菜品 JSON 对象并实时更新
+          // 简单的正则匹配 {...}
+          const matches = [...buffer.matchAll(/\{[\s\S]*?\}/g)];
+          const newItems = [];
+          
+          matches.forEach(match => {
+            try {
+              const obj = JSON.parse(match[0]);
+              // 确保对象包含关键字段才认为是有效的菜品
+              if (obj.nameCN && obj.nameEN) {
+                newItems.push(obj);
+              }
+            } catch (e) {
+              // 忽略不完整的 JSON 片段
+            }
+          });
+
+          if (newItems.length > 0) {
+            setResults({ items: newItems });
+          }
         }
       } catch (err) {
         console.error("Upload error:", err);
