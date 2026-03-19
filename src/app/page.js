@@ -148,7 +148,7 @@ export default function Home() {
 
       {selectedDish && (
         <DishDetail 
-          key={selectedDish.nameCN + targetLang} // 复合 key 确保彻底刷新
+          key={selectedDish.nameCN + targetLang} 
           dish={selectedDish} 
           targetLang={targetLang}
           onClose={() => setSelectedDish(null)} 
@@ -220,27 +220,26 @@ function DishDetail({ dish, targetLang, onClose }) {
   const [details, setDetails] = useState(null);
   const [images, setImages] = useState([]);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // 默认设为 true
   const initialFetchRef = useRef(false);
 
   useEffect(() => {
-    // 强制只执行一次，解决 React 18 的 StrictMode 问题
     if (initialFetchRef.current) return;
     initialFetchRef.current = true;
 
     let isMounted = true;
-    const cacheKey = `detail_v4_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_v5_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     
     if (cached) {
       const parsedCache = JSON.parse(cached);
       setDetails(parsedCache.text);
       setImages(parsedCache.images || []);
+      setLoading(false);
       return;
     }
 
     async function fetchAll() {
-      setLoading(true);
       try {
         const [detailRes, imgRes] = await Promise.all([
           fetch('/api/details', {
@@ -256,7 +255,10 @@ function DishDetail({ dish, targetLang, onClose }) {
         ]);
         
         if (detailRes.status === 429) {
-          if (isMounted) setIsQuotaExceeded(true);
+          if (isMounted) {
+            setIsQuotaExceeded(true);
+            setLoading(false);
+          }
           return;
         }
 
@@ -264,7 +266,6 @@ function DishDetail({ dish, targetLang, onClose }) {
         const imgData = await imgRes.json();
         const newImages = imgData.images || [];
         
-        // 即使卸载也存入缓存
         localStorage.setItem(cacheKey, JSON.stringify({ 
           text: detailData.text, 
           images: newImages 
@@ -284,10 +285,10 @@ function DishDetail({ dish, targetLang, onClose }) {
     return () => { isMounted = false; };
   }, [dish.nameCN, targetLang]);
 
-  // 实时解析详情文本
+  // 改进的解析逻辑，确保即时渲染
   const parsed = useMemo(() => {
     if (!details) return null;
-    const parts = details.split(/(STORY:|METHOD:|TASTE:|SEARCH_TERMS:)/i).map(p => p.trim());
+    const parts = details.split(/(STORY:|METHOD:|TASTE:)/i).map(p => p.trim());
     const res = {};
     for (let i = 1; i < parts.length; i += 2) {
       const key = parts[i].replace(':', '').toLowerCase();
@@ -303,7 +304,7 @@ function DishDetail({ dish, targetLang, onClose }) {
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         
         <div className="detail-gallery-container">
-          {images.length > 0 ? (
+          {!loading && images.length > 0 ? (
             <div className="image-carousel">
               {images.map((url, idx) => (
                 <div key={idx} className="carousel-item">
@@ -311,7 +312,7 @@ function DishDetail({ dish, targetLang, onClose }) {
                     src={url} 
                     alt={`${dish.nameEN} ${idx}`} 
                     referrerPolicy="no-referrer"
-                    loading="eager" // 强制立即加载
+                    loading="eager"
                   />
                 </div>
               ))}
@@ -319,7 +320,7 @@ function DishDetail({ dish, targetLang, onClose }) {
           ) : (
             <div className="placeholder-img">
               <Camera size={40} color="rgba(200,60,35,0.15)" />
-              <span>{loading ? 'Discovering dish photos...' : 'No imagery available'}</span>
+              <span>{loading ? 'Fetching dish photos...' : 'Seeking inspiration...'}</span>
             </div>
           )}
         </div>
@@ -333,17 +334,17 @@ function DishDetail({ dish, targetLang, onClose }) {
           <div className="detail-body">
             {isQuotaExceeded ? (
               <div className="quota-error">
-                <p><strong>Daily limit reached.</strong></p>
-                <p>AI chef is resting. Please try again tomorrow!</p>
+                <p><strong>Limit reached.</strong></p>
+                <p>AI is resting. Try again tomorrow!</p>
               </div>
             ) : parsed ? (
               <>
-                {parsed.story && <div className="info-block"><strong>The Story</strong> <p>{parsed.story}</p></div>}
-                {parsed.method && <div className="info-block"><strong>Culinary Method</strong> <p>{parsed.method}</p></div>}
-                {parsed.taste && <div className="info-block"><strong>Palate & Texture</strong> <p>{parsed.taste}</p></div>}
+                {parsed.story && <div className="info-block"><strong>Story</strong> <p>{parsed.story}</p></div>}
+                {parsed.method && <div className="info-block"><strong>How It's Made</strong> <p>{parsed.method}</p></div>}
+                {parsed.taste && <div className="info-block"><strong>Palate</strong> <p>{parsed.taste}</p></div>}
               </>
             ) : (
-              <p className="loading-text">Decoding culinary secrets into {targetLang}...</p>
+              <p className="loading-text">Decoding culinary secrets...</p>
             )}
             
             <div className="detail-tags">
@@ -355,21 +356,15 @@ function DishDetail({ dish, targetLang, onClose }) {
       </div>
       <style jsx>{`
         .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: flex-end; backdrop-filter: blur(4px); }
-        .detail-sheet { 
-          background: #fcfaf2; width: 100%; border-radius: 24px 24px 0 0; 
-          padding: 24px; position: relative; max-height: 92vh; overflow-y: auto;
-          box-shadow: 0 -10px 40px rgba(0,0,0,0.3); animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .detail-sheet { background: #fcfaf2; width: 100%; border-radius: 24px 24px 0 0; padding: 24px; position: relative; max-height: 92vh; overflow-y: auto; box-shadow: 0 -10px 40px rgba(0,0,0,0.3); animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
-        
         .detail-gallery-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; background: #f0f0f0; position: relative; }
         .image-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; height: 100%; scrollbar-width: none; }
         .image-carousel::-webkit-scrollbar { display: none; }
         .carousel-item { flex: 0 0 100%; scroll-snap-align: start; height: 100%; }
         .carousel-item img { width: 100%; height: 100%; object-fit: cover; }
-        
         .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
         .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
         .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
