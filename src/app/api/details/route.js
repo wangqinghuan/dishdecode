@@ -1,11 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const CANDIDATE_MODELS = [
-  "gemini-2.5-flash-lite", 
-  "gemini-2.5-flash",
-  "gemini-flash-lite-latest",
-  "gemini-3.1-flash-lite-preview"
-];
+const PRODUCTION_MODEL = "gemini-1.5-flash";
 
 export async function POST(req) {
   try {
@@ -21,10 +15,10 @@ export async function POST(req) {
     let lastError = null;
     for (const key of shuffledKeys) {
       const genAI = new GoogleGenerativeAI(key);
-      for (const modelId of CANDIDATE_MODELS) {
-        try {
-          const model = genAI.getGenerativeModel({ model: modelId });
-          const result = await model.generateContent(prompt);
+      try {
+        const model = genAI.getGenerativeModel({ model: PRODUCTION_MODEL });
+        const result = await model.generateContent(prompt);
+...
           const response = await result.response;
           return new Response(JSON.stringify({ text: response.text() }), {
             headers: { "Content-Type": "application/json" },

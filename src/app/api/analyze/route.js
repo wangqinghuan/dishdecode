@@ -2,19 +2,14 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 45;
 
-const CANDIDATE_MODELS = [
-  "gemini-2.5-flash-lite", 
-  "gemini-2.5-flash",
-  "gemini-flash-lite-latest",
-  "gemini-3.1-flash-lite-preview"
-];
+// 付费层级下，锁定性价比最高的稳定模型
+const PRODUCTION_MODEL = "gemini-1.5-flash";
 
 export async function POST(req) {
   try {
     const { image, prefs, targetLang = 'English' } = await req.json();
     const base64Data = image.split(',')[1];
-    
-    // 获取所有可用的 Key 并随机打乱顺序
+
     const allKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
     const shuffledKeys = allKeys.sort(() => Math.random() - 0.5);
 
@@ -28,21 +23,15 @@ export async function POST(req) {
 
     let lastError = null;
 
-    // 第一层循环：尝试每一个 Key
     for (const key of shuffledKeys) {
       const genAI = new GoogleGenerativeAI(key);
-
-      // 第二层循环：尝试每一个模型
-      for (const modelId of CANDIDATE_MODELS) {
-        try {
-          console.log(`>>> Trying Key [${key.substring(0,6)}...] with Model [${modelId}]`);
-          const model = genAI.getGenerativeModel({ model: modelId });
-          
-          const result = await model.generateContentStream([
-            prompt,
-            { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-          ]);
-
+      try {
+        const model = genAI.getGenerativeModel({ model: PRODUCTION_MODEL });
+        const result = await model.generateContentStream([
+          prompt,
+          { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+        ]);
+...
           const stream = new ReadableStream({
             async start(controller) {
               const encoder = new TextEncoder();
