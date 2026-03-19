@@ -8,15 +8,14 @@ export async function POST(req) {
     const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
 
     const prompt = `
-      You are a Chinese culinary expert and cultural ambassador. 
-      For the dish "${nameCN}" (English: ${nameEN}), please provide:
-      
-      1. STORY: The history, cultural background, or the interesting story behind its name.
-      2. METHOD: A clear explanation of the cooking method and key ingredients.
-      3. TASTE: A brief description of the flavor and texture.
+      You are a Chinese culinary expert. For the dish "${nameCN}" (${nameEN}):
+      1. STORY: Brief history or naming origin.
+      2. METHOD: Key cooking steps and ingredients.
+      3. TASTE: Flavor profile.
+      4. WIKI_TITLE: The exact English Wikipedia page title for this dish (e.g., "Kung Pao chicken" or "Mapo tofu"). If no specific page exists, give the closest category.
 
-      Please use vivid, engaging English. Keep it within 100-150 words total.
-      Format: Return raw text with "STORY:", "METHOD:", "TASTE:" headings.
+      Keep descriptions concise (100 words total).
+      Format: STORY: ... METHOD: ... TASTE: ... WIKI_TITLE: [Title Only]
     `;
 
     const result = await model.generateContent(prompt);

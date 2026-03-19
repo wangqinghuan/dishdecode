@@ -196,7 +196,8 @@ function DishDetail({ dish, onClose }) {
 
   useEffect(() => {
     async function fetchInfo() {
-      // 1. 获取 AI 生成的文化背景和做法
+      // 1. 获取 AI 生成的文化背景和精准 WIKI 标题
+      let wikiTitle = dish.nameEN;
       try {
         const detailRes = await fetch('/api/details', {
           method: 'POST',
@@ -205,32 +206,31 @@ function DishDetail({ dish, onClose }) {
         });
         const detailData = await detailRes.json();
         setDetails(detailData.text);
+        
+        // 解析出 WIKI_TITLE
+        const match = detailData.text.match(/WIKI_TITLE:\s*(.*)/i);
+        if (match?.[1]) wikiTitle = match[1].trim();
       } catch (e) {
         console.error("Detail AI fetch failed", e);
       }
 
-      // 2. 获取 Wikipedia 真实图片 (尝试多种名称匹配和语言)
+      // 2. 获取 Wikipedia 真实图片 (采用两步走：先精准标题，后多种尝试)
       try {
-        const searchTerms = [dish.nameEN, dish.nameCN, dish.nameEN.replace(/ /g, '_')];
+        const searchTerms = [wikiTitle, dish.nameEN, dish.nameCN];
         let foundImg = null;
-        
-        // 先尝试英文维基，再尝试中文维基
         const langs = ['en', 'zh'];
         
         for (const lang of langs) {
           if (foundImg) break;
           for (const term of searchTerms) {
+            if (!term) continue;
             try {
-              const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
+              const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term.replace(/ /g, '_'))}`);
               if (res.ok) {
                 const data = await res.json();
                 if (data.originalimage?.source) {
-                  // 验证图片链接是否真的可用
-                  const imgCheck = await fetch(data.originalimage.source, { method: 'HEAD' });
-                  if (imgCheck.ok) {
-                    foundImg = data.originalimage.source;
-                    break;
-                  }
+                  foundImg = data.originalimage.source;
+                  break;
                 }
               }
             } catch (innerE) {}
@@ -247,14 +247,13 @@ function DishDetail({ dish, onClose }) {
   // 解析 STORY, METHOD, TASTE 文本
   const parseDetails = (text) => {
     if (!text) return null;
-    const sections = text.split(/(STORY:|METHOD:|TASTE:)/g).filter(s => s.trim());
-    const result = {};
-    for (let i = 0; i < sections.length; i += 2) {
-      const key = sections[i].replace(':', '').trim().toLowerCase();
-      const val = sections[i+1]?.trim();
-      if (key && val) result[key] = val;
+    const parts = text.split(/(STORY:|METHOD:|TASTE:|WIKI_TITLE:)/i).map(p => p.trim());
+    const res = {};
+    for (let i = 1; i < parts.length; i += 2) {
+      const key = parts[i].replace(':', '').toLowerCase();
+      res[key] = parts[i+1];
     }
-    return result;
+    return res;
   };
 
   const parsed = parseDetails(details);
@@ -267,11 +266,15 @@ function DishDetail({ dish, onClose }) {
         
         <div className="detail-img-container">
           {wikiData.img ? (
-            <img src={wikiData.img} alt={dish.nameEN} />
+            <img 
+              src={wikiData.img} 
+              alt={dish.nameEN} 
+              onError={() => setWikiData(p => ({...p, img: null}))}
+            />
           ) : (
             <div className="placeholder-img">
               <MessageCircle size={40} color="rgba(200,60,35,0.2)" />
-              <span>Fetching vivid imagery...</span>
+              <span>Seeking visual inspiration...</span>
             </div>
           )}
         </div>
@@ -285,12 +288,12 @@ function DishDetail({ dish, onClose }) {
           <div className="detail-body">
             {parsed ? (
               <>
-                {parsed.story && <div className="info-block"><strong>The Story:</strong> <p>{parsed.story}</p></div>}
-                {parsed.method && <div className="info-block"><strong>How It's Made:</strong> <p>{parsed.method}</p></div>}
-                {parsed.taste && <div className="info-block"><strong>The Taste:</strong> <p>{parsed.taste}</p></div>}
+                {parsed.story && <div className="info-block"><strong>The Story</strong> <p>{parsed.story}</p></div>}
+                {parsed.method && <div className="info-block"><strong>Culinary Method</strong> <p>{parsed.method}</p></div>}
+                {parsed.taste && <div className="info-block"><strong>Palate & Texture</strong> <p>{parsed.taste}</p></div>}
               </>
             ) : (
-              <p className="loading-text">Unlocking culinary secrets and cultural stories...</p>
+              <p className="loading-text">Decoding culinary secrets...</p>
             )}
             
             <div className="detail-tags">
@@ -304,24 +307,24 @@ function DishDetail({ dish, onClose }) {
         .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: flex-end; backdrop-filter: blur(4px); }
         .detail-sheet { 
           background: #fcfaf2; width: 100%; border-radius: 24px 24px 0 0; 
-          padding: 24px; position: relative; max-height: 90vh; overflow-y: auto;
-          box-shadow: 0 -10px 40px rgba(0,0,0,0.2); animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 24px; position: relative; max-height: 92vh; overflow-y: auto;
+          box-shadow: 0 -10px 40px rgba(0,0,0,0.3); animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: -8px auto 20px; }
         .close-sheet { position: absolute; right: 20px; top: 20px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; z-index: 10; cursor: pointer; }
-        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; overflow: hidden; border-bottom: 1px solid rgba(0,0,0,0.05); background: #eee; position: relative; }
+        .detail-img-container { width: calc(100% + 48px); margin: -24px -24px 24px; height: 300px; overflow: hidden; background: #f0f0f0; }
         .detail-img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #999; font-size: 14px; font-weight: 500; }
+        .placeholder-img { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #bbb; font-size: 14px; font-weight: 500; }
         .detail-header { margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 16px; }
         .detail-cn { font-family: "Noto Serif SC", serif; color: #c83c23; font-weight: bold; font-size: 20px; }
         .detail-header h2 { font-size: 32px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; letter-spacing: -0.5px; }
         .info-block { margin-bottom: 24px; }
-        .info-block strong { display: block; font-size: 13px; text-transform: uppercase; color: #c83c23; letter-spacing: 1px; margin-bottom: 6px; }
-        .info-block p { color: #444; line-height: 1.6; font-size: 16px; }
-        .loading-text { color: #999; font-style: italic; text-align: center; margin: 40px 0; }
+        .info-block strong { display: block; font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 800; }
+        .info-block p { color: #333; line-height: 1.7; font-size: 16px; }
+        .loading-text { color: #999; font-style: italic; text-align: center; margin: 60px 0; }
         .detail-tags { display: flex; gap: 8px; margin-top: 32px; }
-        .tag { background: #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
+        .tag { background: white; border: 1px solid #eee; padding: 6px 16px; border-radius: 24px; font-size: 13px; font-weight: 600; color: #666; }
       `}</style>
     </div>
   );
