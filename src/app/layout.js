@@ -11,6 +11,9 @@ export const metadata = {
   alternates: {
     canonical: '/',
   },
+  verification: {
+    google: 'Kd_pHZRg2BjECIm4Wcp2h7z43A_WI1FYMWSwDGhQVrs',
+  },
   openGraph: {
     title: 'DishDecode - AI Menu Translation & Discovery',
     description: 'Snap a photo, translate instantly, and discover authentic Chinese dishes.',
