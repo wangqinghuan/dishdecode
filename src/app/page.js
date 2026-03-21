@@ -107,6 +107,14 @@ export default function Home() {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         
+        // 检测是否为非中国菜单
+        if (buffer.includes('NOT_A_CHINESE_MENU')) {
+          setError("This doesn't look like a Chinese menu. DishDecode currently only supports authentic Chinese restaurant menus.");
+          setLoading(false);
+          setImage(null);
+          return;
+        }
+        
         // 1. 先尝试整体直接解析 (针对非流式或已完成的情况)
         try {
           const fullJson = JSON.parse(buffer);

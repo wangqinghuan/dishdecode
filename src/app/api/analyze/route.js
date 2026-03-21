@@ -15,10 +15,10 @@ export async function POST(req) {
 
     const prompt = `
       ACT AS A RAW DATA EXTRACTOR. 
-      FIRST: Check if the provided image is a restaurant menu. 
-      IF NOT A MENU: Return ONLY {"error": "NOT_A_MENU"}.
+      FIRST: Check if the provided image is a CHINESE restaurant menu (must contain Chinese characters and be a menu).
+      IF NOT A CHINESE MENU: Return ONLY {"error": "NOT_A_CHINESE_MENU"}.
       
-      IF IT IS A MENU:
+      IF IT IS A CHINESE MENU:
       TASK: Convert EVERY visible dish in this image into a JSON list.
       TARGET LANGUAGE: ${targetLang}
       RULES: INCLUDE EVERY ITEM. DO NOT SKIP.
