@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Camera, X, Globe, ChevronDown, Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { Camera, X, Globe, ChevronDown, Loader2, Sparkles, ArrowRight, Maximize2 } from 'lucide-react';
 
 const LANGUAGES = [
   { label: 'English', value: 'English', currency: 'USD', symbol: '$', rate: 0.14 },
@@ -17,42 +17,22 @@ const LANGUAGES = [
 ];
 
 const DEMO_CASES = [
-  {
-    id: 1,
-    name: 'Spicy Sichuan',
-    menuUrl: '/demo/menu1.png',
-    resultUrl: '/demo/result1.png',
-    rotation: '-3deg'
-  },
-  {
-    id: 2,
-    name: 'Cantonese Dim Sum',
-    menuUrl: '/demo/menu2.png',
-    resultUrl: '/demo/result2.png',
-    rotation: '2deg'
-  }
+  { id: 1, menuUrl: '/demo/menu1.png', resultUrl: '/demo/result1.png', rotation: '-3deg' },
+  { id: 2, menuUrl: '/demo/menu2.png', resultUrl: '/demo/result2.png', rotation: '2deg' }
 ];
 
-// 图片压缩工具函数
 const compressImage = (base64Str, maxWidth = 1600) => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > maxWidth) {
-        height = (maxWidth / width) * height;
-        width = maxWidth;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth; }
+      canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8)); // 强制转为 JPEG，质量 0.8
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
     };
   });
 };
@@ -66,10 +46,9 @@ export default function Home() {
   const [dishDetailData, setDishDetailData] = useState({ text: null, images: [], loading: false });
   const [targetLang, setTargetLang] = useState('English');
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const [zoomImage, setZoomImage] = useState(null);
 
-  const currentLangObj = useMemo(() => 
-    LANGUAGES.find(l => l.value === targetLang) || LANGUAGES[0]
-  , [targetLang]);
+  const currentLangObj = useMemo(() => LANGUAGES.find(l => l.value === targetLang) || LANGUAGES[0], [targetLang]);
 
   useEffect(() => {
     const savedLang = localStorage.getItem('dishdecode_lang');
@@ -84,7 +63,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const p = JSON.parse(cached);
@@ -94,16 +73,8 @@ export default function Home() {
     setDishDetailData({ text: null, images: [], loading: true });
     try {
       const [dRes, iRes] = await Promise.all([
-        fetch('/api/details', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang }) 
-        }),
-        fetch('/api/images', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nameCN: dish.nameCN }) 
-        })
+        fetch('/api/details', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang }) }),
+        fetch('/api/images', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nameCN: dish.nameCN }) })
       ]);
       const dData = await dRes.json();
       const iData = await iRes.json();
@@ -114,21 +85,10 @@ export default function Home() {
   };
 
   const startAnalysis = async (imgUrl) => {
-    setError(null);
-    setImage(imgUrl);
-    setLoading(true);
-    setResults({ items: [] });
-    
-    // 关键修复：发送前先压缩图片，确保符合 API 规范
+    setError(null); setImage(imgUrl); setLoading(true); setResults({ items: [] });
     const cleanImg = await compressImage(imgUrl);
-
     try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: cleanImg, targetLang }),
-      });
-      
+      const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: cleanImg, targetLang }) });
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -136,36 +96,18 @@ export default function Home() {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-
         if (buffer.includes('"error": "NOT_A_MENU"')) {
           setError("Oops! This doesn't look like a menu. Please snap a photo of a real menu.");
-          setLoading(false);
-          setImage(null);
-          return;
+          setLoading(false); setImage(null); return;
         }
-
         const matches = [...buffer.matchAll(/\{[\s\S]*?\}/g)];
         const newItems = [];
         matches.forEach(match => {
-          try {
-            const obj = JSON.parse(match[0]);
-            if (obj.nameCN && obj.nameEN) newItems.push(obj);
-          } catch (e) {}
+          try { const obj = JSON.parse(match[0]); if (obj.nameCN && obj.nameEN) newItems.push(obj); } catch (e) {}
         });
         if (newItems.length > 0) setResults({ items: newItems });
       }
-    } catch (err) { 
-      console.error("API Error:", err);
-      setError("Analysis failed. Please try a different photo."); 
-    } finally { setLoading(false); }
-  };
-
-  const onFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => startAnalysis(event.target.result);
-    reader.readAsDataURL(file);
+    } catch (err) { setError("Analysis failed. Please try a different photo."); } finally { setLoading(false); }
   };
 
   return (
@@ -174,15 +116,9 @@ export default function Home() {
         <h1 className="brand-text">DishDecode</h1>
         <div className="custom-lang-selector">
           <button className="lang-btn" onClick={() => setShowLangMenu(!showLangMenu)}>
-            <Globe size={16} />
-            <span>{currentLangObj.label}</span>
-            <ChevronDown size={14} className={showLangMenu ? 'rotate' : ''} />
+            <Globe size={16} /><span>{currentLangObj.label}</span><ChevronDown size={14} className={showLangMenu ? 'rotate' : ''} />
           </button>
-          {showLangMenu && (
-            <div className="lang-dropdown">
-              {LANGUAGES.map(l => <div key={l.value} className="lang-option" onClick={() => selectLang(l.value)}>{l.label}</div>)}
-            </div>
-          )}
+          {showLangMenu && <div className="lang-dropdown">{LANGUAGES.map(l => <div key={l.value} className="lang-option" onClick={() => selectLang(l.value)}>{l.label}</div>)}</div>}
         </div>
       </header>
 
@@ -194,25 +130,24 @@ export default function Home() {
             <label className="scan-placeholder">
               <div className="camera-circle"><Camera size={40} color="white" /></div>
               <h2>Scan Menu</h2>
-              <p>Decode names, ingredients, and stories behind every dish in {targetLang}.</p>
-              <input type="file" accept="image/*" onChange={onFileChange} className="hidden-input" />
+              <p>Decode names, ingredients, and stories in {targetLang}.</p>
+              <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onload = (ev) => startAnalysis(r.result); r.readAsDataURL(f); }}} className="hidden-input" />
             </label>
 
             <div className="demo-section">
-              <div className="demo-label">
-                <Sparkles size={14} />
-                <span>See how it works</span>
-              </div>
+              <div className="demo-label"><Sparkles size={14} /><span>See how it works (Tap to zoom)</span></div>
               <div className="demo-stack-vertical">
                 {DEMO_CASES.map(item => (
                   <div key={item.id} className="demo-pair">
-                    <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }}>
-                      <img src={item.menuUrl} alt="Original Menu" />
+                    <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }} onClick={() => setZoomImage(item.menuUrl)}>
+                      <img src={item.menuUrl} alt="Menu" />
+                      <div className="zoom-hint"><Maximize2 size={12} /></div>
                       <span className="badge">Menu</span>
                     </div>
                     <div className="demo-arrow"><ArrowRight size={16} color="#c83c23" /></div>
-                    <div className="demo-card after" style={{ transform: `rotate(calc(${item.rotation} * -0.5))` }}>
-                      <img src={item.resultUrl} alt="Scan Result" />
+                    <div className="demo-card after" style={{ transform: `rotate(calc(${item.rotation} * -0.5))` }} onClick={() => setZoomImage(item.resultUrl)}>
+                      <img src={item.resultUrl} alt="Result" />
+                      <div className="zoom-hint"><Maximize2 size={12} /></div>
                       <span className="badge">Decoded</span>
                     </div>
                   </div>
@@ -232,28 +167,35 @@ export default function Home() {
       </main>
 
       {selectedDish && <DishDetail dish={selectedDish} data={dishDetailData} onClose={() => setSelectedDish(null)} />}
+      
+      {zoomImage && (
+        <div className="zoom-overlay" onClick={() => setZoomImage(null)}>
+          <button className="close-zoom"><X size={30} color="white" /></button>
+          <img src={zoomImage} alt="Zoomed" />
+        </div>
+      )}
 
       <style jsx global>{`
         .demo-section { margin-top: 48px; padding: 0 20px 80px; }
         .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 14px; font-weight: 600; margin-bottom: 40px; justify-content: center; }
         .demo-stack-vertical { display: flex; flex-direction: column; gap: 64px; align-items: center; }
-        .demo-pair { display: flex; align-items: center; gap: 20px; cursor: pointer; transition: all 0.3s; padding: 10px; }
-        .demo-pair:active { transform: scale(0.98); }
-        .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
-        .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; flex-shrink: 0; }
+        .demo-pair { display: flex; align-items: center; gap: 20px; }
+        .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; cursor: pointer; }
         .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
-        .demo-card.before img { filter: sepia(0.2) contrast(0.9); }
-        .demo-card .badge { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+        .zoom-hint { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); padding: 4px; border-radius: 50%; opacity: 0.6; }
+        .demo-card .badge { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; }
         .demo-card.after .badge { background: #c83c23; }
 
+        .zoom-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s; }
+        .zoom-overlay img { max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+        .close-zoom { position: absolute; top: 30px; right: 20px; background: none; border: none; cursor: pointer; }
+
         .custom-lang-selector { position: relative; z-index: 50; }
-        .lang-btn { background: #f0f0f0; border: none; padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; cursor: pointer; color: #1a1a1b; transition: all 0.2s; }
-        .lang-btn .rotate { transform: rotate(180deg); }
-        .lang-dropdown { position: absolute; right: 0; top: 40px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #eee; min-width: 160px; overflow: hidden; animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .lang-btn { background: #f0f0f0; border: none; padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .lang-dropdown { position: absolute; right: 0; top: 40px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #eee; min-width: 160px; overflow: hidden; }
         .lang-option { padding: 12px 16px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
         .lang-option:hover { background: #fcfaf2; color: #c83c23; }
-        
         .error-bar { background: #fff5f5; color: #c53030; padding: 12px 20px; margin: 0 20px 20px; border-radius: 12px; border: 1px solid #feb2b2; font-size: 14px; text-align: center; font-weight: 600; }
         .scan-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
         .scan-loader .line { width: 100%; height: 2px; background: #c83c23; position: absolute; top: 0; animation: scanAnim 2s linear infinite; }
@@ -270,10 +212,7 @@ export default function Home() {
 function ResultsList({ results, currency, onReset, onDishClick }) {
   return (
     <div className="results-container">
-      <div className="results-header">
-        <h3>Menu ({results.items.length})</h3>
-        <button onClick={onReset} className="reset-btn"><X size={20} /></button>
-      </div>
+      <div className="results-header"><h3>Menu ({results.items.length})</h3><button onClick={onReset} className="reset-btn"><X size={20} /></button></div>
       <div className="dish-grid">
         {results.items.map((dish, i) => {
           const rawPrice = parseFloat(String(dish.price).replace(/[^0-9.]/g, ''));
@@ -281,13 +220,7 @@ function ResultsList({ results, currency, onReset, onDishClick }) {
           const converted = (finalPrice * currency.rate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
           return (
             <div key={i} className="dish-card safe" onClick={() => onDishClick(dish)}>
-              <div className="dish-top">
-                <span className="dish-name-cn">{dish.nameCN}</span>
-                <div className="dish-price">
-                  <span className="cny">¥{finalPrice}</span>
-                  <span className="converted">{currency.symbol}{converted}</span>
-                </div>
-              </div>
+              <div className="dish-top"><span className="dish-name-cn">{dish.nameCN}</span><div className="dish-price"><span className="cny">¥{finalPrice}</span><span className="converted">{currency.symbol}{converted}</span></div></div>
               <h4 style={{ marginBottom: '8px' }}>{dish.nameEN}</h4>
               <div className="ingredients-box" style={{ padding: '8px', marginBottom: '10px', background: '#f9f9f9' }}>
                 <div className="ingredients" style={{ fontSize: '12px' }}>
@@ -329,17 +262,10 @@ function DishDetail({ dish, data, onClose }) {
         <div className="sheet-handle"></div>
         <button className="close-sheet" onClick={onClose}><X size={24} /></button>
         <div className="detail-gallery-container">
-          {data.loading ? (
-            <div className="skeleton-gallery"><Loader2 className="spin" size={30} /></div>
+          {data.loading ? ( <div className="skeleton-gallery"><Loader2 className="spin" size={30} /></div>
           ) : data.images.length > 0 ? (
-            <div className="image-carousel">
-              {data.images.map((url, idx) => (
-                <div key={url + idx} className="carousel-item"><img src={url} alt="Dish" loading="eager" /></div>
-              ))}
-            </div>
-          ) : (
-            <div className="placeholder-img"><Camera size={40} color="#ddd" /></div>
-          )}
+            <div className="image-carousel">{data.images.map((url, idx) => ( <div key={url + idx} className="carousel-item"><img src={url} alt="Dish" loading="eager" /></div> ))}</div>
+          ) : ( <div className="placeholder-img"><Camera size={40} color="#ddd" /></div> )}
         </div>
         <div className="detail-content">
           <div className="detail-header"><span className="detail-cn">{dish.nameCN}</span><h2>{dish.nameEN}</h2></div>
