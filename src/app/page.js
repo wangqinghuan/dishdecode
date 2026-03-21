@@ -63,7 +63,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const p = JSON.parse(cached);
@@ -85,29 +85,54 @@ export default function Home() {
   };
 
   const startAnalysis = async (imgUrl) => {
-    setError(null); setImage(imgUrl); setLoading(true); setResults({ items: [] });
+    // 强制重置状态
+    setError(null);
+    setResults({ items: [] });
+    setImage(imgUrl);
+    setLoading(true);
+    
     const cleanImg = await compressImage(imgUrl);
     try {
-      const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: cleanImg, targetLang }) });
+      const response = await fetch('/api/analyze', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ image: cleanImg, targetLang }) 
+      });
+      
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
+        
         if (buffer.includes('"error": "NOT_A_MENU"')) {
           setError("Oops! This doesn't look like a menu. Please snap a photo of a real menu.");
-          setLoading(false); setImage(null); return;
+          setLoading(false);
+          setImage(null);
+          return;
         }
+
         const matches = [...buffer.matchAll(/\{[\s\S]*?\}/g)];
         const newItems = [];
         matches.forEach(match => {
-          try { const obj = JSON.parse(match[0]); if (obj.nameCN && obj.nameEN) newItems.push(obj); } catch (e) {}
+          try {
+            const obj = JSON.parse(match[0]);
+            if (obj.nameCN && obj.nameEN) newItems.push(obj);
+          } catch (e) {}
         });
-        if (newItems.length > 0) setResults({ items: newItems });
+        
+        if (newItems.length > 0) {
+          setResults({ items: newItems });
+        }
       }
-    } catch (err) { setError("Analysis failed. Please try a different photo."); } finally { setLoading(false); }
+    } catch (err) { 
+      setError("Analysis failed. Please try a different photo."); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
@@ -182,7 +207,7 @@ export default function Home() {
         .demo-pair { display: flex; align-items: center; gap: 20px; }
         .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; cursor: pointer; }
-        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
+        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
         .zoom-hint { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); padding: 4px; border-radius: 50%; opacity: 0.6; }
         .demo-card .badge { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; }
         .demo-card.after .badge { background: #c83c23; }
@@ -264,7 +289,7 @@ function DishDetail({ dish, data, onClose }) {
         <div className="detail-gallery-container">
           {data.loading ? ( <div className="skeleton-gallery"><Loader2 className="spin" size={30} /></div>
           ) : data.images.length > 0 ? (
-            <div className="image-carousel">{data.images.map((url, idx) => ( <div key={url + idx} className="carousel-item"><img src={url} alt="Dish" loading="eager" /></div> ))}</div>
+            <div className="image-carousel">{data.images.map((url, idx) => ( <div key={url + idx} className="carousel-item"><img src={url} alt="Dish" loading="eager" onError={(e) => e.target.style.display='none'} /></div> ))}</div>
           ) : ( <div className="placeholder-img"><Camera size={40} color="#ddd" /></div> )}
         </div>
         <div className="detail-content">
