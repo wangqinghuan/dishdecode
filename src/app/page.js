@@ -63,7 +63,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const p = JSON.parse(cached);
@@ -85,7 +85,6 @@ export default function Home() {
   };
 
   const startAnalysis = async (imgUrl) => {
-    // 强制重置状态
     setError(null);
     setResults({ items: [] });
     setImage(imgUrl);
@@ -115,17 +114,24 @@ export default function Home() {
           return;
         }
 
-        const matches = [...buffer.matchAll(/\{[\s\S]*?\}/g)];
-        const newItems = [];
-        matches.forEach(match => {
+        // 【关键修复】更健壮的解析逻辑：寻找每一个独立的菜品对象
+        // 匹配模式：寻找以 {"nameCN" 开始，到最近的 } 结束的块
+        const dishMatches = [...buffer.matchAll(/\{\s*"nameCN"[\s\S]*?\}/g)];
+        const items = [];
+        
+        dishMatches.forEach(match => {
           try {
             const obj = JSON.parse(match[0]);
-            if (obj.nameCN && obj.nameEN) newItems.push(obj);
-          } catch (e) {}
+            if (obj.nameCN) {
+              items.push(obj);
+            }
+          } catch (e) {
+            // 忽略尚未完全接收到的 JSON 块
+          }
         });
-        
-        if (newItems.length > 0) {
-          setResults({ items: newItems });
+
+        if (items.length > 0) {
+          setResults({ items });
         }
       }
     } catch (err) { 
@@ -207,7 +213,7 @@ export default function Home() {
         .demo-pair { display: flex; align-items: center; gap: 20px; }
         .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; cursor: pointer; }
-        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
         .zoom-hint { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); padding: 4px; border-radius: 50%; opacity: 0.6; }
         .demo-card .badge { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; }
         .demo-card.after .badge { background: #c83c23; }
@@ -301,7 +307,7 @@ function DishDetail({ dish, data, onClose }) {
               <div className="slim-details">
                 {parsed?.story && <div className="slim-block"><strong>Heritage</strong><p>{parsed.story}</p></div>}
                 {parsed?.method && <div className="slim-block"><strong>Creation</strong><p>{parsed.method}</p></div>}
-                {parsed?.taste && <div className="slim-block"><strong>Essence</strong><p>{parsed.taste}</p></div>}
+                {parsed?.taste && <div className="slim-block"><strong>Flavor</strong><p>{parsed.taste}</p></div>}
               </div>
             )}
           </div>
