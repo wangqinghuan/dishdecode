@@ -205,7 +205,7 @@ export default function Home() {
               </div>
               <div className="demo-stack-vertical">
                 {DEMO_CASES.map(item => (
-                  <div key={item.id} className="demo-pair" onClick={() => startAnalysis(item.menuUrl)}>
+                  <div key={item.id} className="demo-pair">
                     <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }}>
                       <img src={item.menuUrl} alt="Original Menu" />
                       <span className="badge">Menu</span>
