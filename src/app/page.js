@@ -63,7 +63,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const p = JSON.parse(cached);
@@ -107,27 +107,23 @@ export default function Home() {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         
-        if (buffer.includes('"error": "NOT_A_MENU"')) {
-          setError("Oops! This doesn't look like a menu. Please snap a photo of a real menu.");
-          setLoading(false);
-          setImage(null);
-          return;
-        }
-
-        // 【关键修复】更健壮的解析逻辑：寻找每一个独立的菜品对象
-        // 匹配模式：寻找以 {"nameCN" 开始，到最近的 } 结束的块
-        const dishMatches = [...buffer.matchAll(/\{\s*"nameCN"[\s\S]*?\}/g)];
-        const items = [];
-        
-        dishMatches.forEach(match => {
-          try {
-            const obj = JSON.parse(match[0]);
-            if (obj.nameCN) {
-              items.push(obj);
-            }
-          } catch (e) {
-            // 忽略尚未完全接收到的 JSON 块
+        // 1. 先尝试整体直接解析 (针对非流式或已完成的情况)
+        try {
+          const fullJson = JSON.parse(buffer);
+          if (fullJson.items) {
+            setResults({ items: fullJson.items });
+            continue; 
           }
+        } catch (e) {}
+
+        // 2. 备选方案：正则提取 (针对流式数据)
+        const items = [];
+        const matches = [...buffer.matchAll(/\{\s*"nameCN"[\s\S]*?\}/g)];
+        matches.forEach(m => {
+          try {
+            const obj = JSON.parse(m[0]);
+            if (obj.nameCN) items.push(obj);
+          } catch (e) {}
         });
 
         if (items.length > 0) {
@@ -135,7 +131,7 @@ export default function Home() {
         }
       }
     } catch (err) { 
-      setError("Analysis failed. Please try a different photo."); 
+      setError("Analysis failed. Please try again."); 
     } finally { 
       setLoading(false); 
     }
@@ -307,7 +303,7 @@ function DishDetail({ dish, data, onClose }) {
               <div className="slim-details">
                 {parsed?.story && <div className="slim-block"><strong>Heritage</strong><p>{parsed.story}</p></div>}
                 {parsed?.method && <div className="slim-block"><strong>Creation</strong><p>{parsed.method}</p></div>}
-                {parsed?.taste && <div className="slim-block"><strong>Flavor</strong><p>{parsed.taste}</p></div>}
+                {parsed?.taste && <div className="slim-block"><strong>Essence</strong><p>{parsed.taste}</p></div>}
               </div>
             )}
           </div>
