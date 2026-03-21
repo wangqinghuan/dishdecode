@@ -164,7 +164,7 @@ export default function Home() {
           <>
             <label className="scan-placeholder">
               <div className="camera-circle"><Camera size={40} color="white" /></div>
-              <h2>Scan Menu</h2>
+              <h2>Scan Chinese Menu</h2>
               <p>Decode names, ingredients, and stories in {targetLang}.</p>
               <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onload = (ev) => startAnalysis(r.result); r.readAsDataURL(f); }}} className="hidden-input" />
             </label>
