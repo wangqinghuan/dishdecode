@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Camera, X, Globe, ChevronDown, Loader2, Sparkles } from 'lucide-react';
+import { Camera, X, Globe, ChevronDown, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 
 const LANGUAGES = [
   { label: 'English', value: 'English', currency: 'USD', symbol: '$', rate: 0.14 },
@@ -16,10 +16,21 @@ const LANGUAGES = [
   { label: '한국어', value: 'Korean', currency: 'KRW', symbol: '₩', rate: 185 }
 ];
 
-const DEMO_MENUS = [
-  { id: 1, name: 'Sichuan Bistro', url: 'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?q=80&w=800', rotation: '-4deg' },
-  { id: 2, name: 'Dim Sum Palace', url: 'https://images.unsplash.com/photo-1582450871972-ed5ca607972c?q=80&w=800', rotation: '2deg' },
-  { id: 3, name: 'Local Noodle Shop', url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800', rotation: '-2deg' }
+const DEMO_CASES = [
+  {
+    id: 1,
+    name: 'Spicy Sichuan',
+    menuUrl: 'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?q=80&w=800',
+    resultUrl: 'https://images.unsplash.com/photo-1563245332-692e196666bc?q=80&w=800',
+    rotation: '-3deg'
+  },
+  {
+    id: 2,
+    name: 'Cantonese Dim Sum',
+    menuUrl: 'https://images.unsplash.com/photo-1582450871972-ed5ca607972c?q=80&w=800',
+    resultUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800',
+    rotation: '2deg'
+  }
 ];
 
 export default function Home() {
@@ -49,7 +60,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vFinal_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const p = JSON.parse(cached);
@@ -70,7 +81,7 @@ export default function Home() {
     } catch (e) { setDishDetailData(prev => ({ ...prev, loading: false })); }
   };
 
-  const startAnalysis = async (imgUrl, isBase64 = true) => {
+  const startAnalysis = async (imgUrl) => {
     setImage(imgUrl);
     setLoading(true);
     setResults({ items: [] });
@@ -132,26 +143,28 @@ export default function Home() {
             <label className="scan-placeholder">
               <div className="camera-circle"><Camera size={40} color="white" /></div>
               <h2>Scan Menu</h2>
-              <p>Instantly decode names, ingredients, flavors, and the stories behind every dish in {targetLang}.</p>
+              <p>Decode names, ingredients, and stories behind every dish in {targetLang}.</p>
               <input type="file" accept="image/*" onChange={onFileChange} className="hidden-input" />
             </label>
 
             <div className="demo-section">
               <div className="demo-label">
                 <Sparkles size={14} />
-                <span>No menu? Try a sample</span>
+                <span>See how it works</span>
               </div>
               <div className="demo-scroll">
-                <div className="demo-stack">
-                  {DEMO_MENUS.map(menu => (
-                    <div 
-                      key={menu.id} 
-                      className="demo-card" 
-                      style={{ transform: `rotate(${menu.rotation})` }}
-                      onClick={() => startAnalysis(menu.url, false)}
-                    >
-                      <img src={menu.url} alt="Sample Menu" />
-                      <div className="demo-overlay"><Camera size={20} color="white" /></div>
+                <div className="demo-list">
+                  {DEMO_CASES.map(item => (
+                    <div key={item.id} className="demo-pair" onClick={() => startAnalysis(item.menuUrl)}>
+                      <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }}>
+                        <img src={item.menuUrl} alt="Original Menu" />
+                        <span className="badge">Menu</span>
+                      </div>
+                      <div className="demo-arrow"><ArrowRight size={16} color="#c83c23" /></div>
+                      <div className="demo-card after" style={{ transform: `rotate(calc(${item.rotation} * -0.5))` }}>
+                        <img src={item.resultUrl} alt="Scan Result" />
+                        <span className="badge">Decoded</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -173,15 +186,20 @@ export default function Home() {
 
       <style jsx global>{`
         .demo-section { margin-top: 40px; padding: 0 20px; }
-        .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 13px; font-weight: 600; margin-bottom: 20px; justify-content: center; }
-        .demo-scroll { overflow-x: auto; padding: 20px 0 40px; scrollbar-width: none; }
+        .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 13px; font-weight: 600; margin-bottom: 24px; justify-content: center; }
+        .demo-scroll { overflow-x: auto; padding: 10px 0 40px; scrollbar-width: none; }
         .demo-scroll::-webkit-scrollbar { display: none; }
-        .demo-stack { display: flex; gap: 20px; padding-left: 20px; width: max-content; }
-        .demo-card { width: 140px; height: 180px; background: white; padding: 6px; border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,0.12); cursor: pointer; transition: all 0.3s; flex-shrink: 0; position: relative; }
-        .demo-card:hover { transform: translateY(-10px) rotate(0deg) !important; z-index: 10; }
-        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; filter: sepia(0.2) contrast(0.9); }
-        .demo-overlay { position: absolute; inset: 0; background: rgba(200,60,35,0.2); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; border-radius: 4px; }
-        .demo-card:hover .demo-overlay { opacity: 1; }
+        .demo-list { display: flex; gap: 40px; padding-left: 20px; width: max-content; }
+        
+        .demo-pair { display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.3s; }
+        .demo-pair:active { transform: scale(0.98); }
+        .demo-arrow { background: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 5; }
+        
+        .demo-card { width: 120px; height: 160px; background: white; padding: 5px; border-radius: 4px; box-shadow: 0 6px 15px rgba(0,0,0,0.1); position: relative; flex-shrink: 0; transition: transform 0.3s; }
+        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+        .demo-card.before img { filter: sepia(0.3) contrast(0.8); }
+        .demo-card .badge { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(26, 26, 27, 0.8); color: white; font-size: 9px; font-weight: bold; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; }
+        .demo-card.after .badge { background: #c83c23; }
 
         .custom-lang-selector { position: relative; z-index: 50; }
         .lang-btn { background: #f0f0f0; border: none; padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; cursor: pointer; color: #1a1a1b; transition: all 0.2s; }
