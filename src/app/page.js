@@ -176,13 +176,11 @@ export default function Home() {
                   <div key={item.id} className="demo-pair">
                     <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }} onClick={() => setZoomImage(item.menuUrl)}>
                       <img src={item.menuUrl} alt="Menu" />
-                      <div className="zoom-hint"><Maximize2 size={12} /></div>
                       <span className="badge">Menu</span>
                     </div>
                     <div className="demo-arrow"><ArrowRight size={16} color="#c83c23" /></div>
                     <div className="demo-card after" style={{ transform: `rotate(calc(${item.rotation} * -0.5))` }} onClick={() => setZoomImage(item.resultUrl)}>
                       <img src={item.resultUrl} alt="Result" />
-                      <div className="zoom-hint"><Maximize2 size={12} /></div>
                       <span className="badge">Decoded</span>
                     </div>
                   </div>
@@ -218,7 +216,6 @@ export default function Home() {
         .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; cursor: pointer; }
         .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
-        .zoom-hint { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); padding: 4px; border-radius: 50%; opacity: 0.6; }
         .demo-card .badge { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; }
         .demo-card.after .badge { background: #c83c23; }
 
