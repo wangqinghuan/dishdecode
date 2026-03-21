@@ -1,15 +1,43 @@
 import '../styles/theme.css';
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://' + process.env.VERCEL_URL || 'http://localhost:3000';
+
 export const metadata = {
-  title: 'DishDecode - AI Menu App',
-  description: 'AI-powered menu recognizer for expats in China.',
+  title: 'DishDecode - AI Menu Translation & Discovery in China',
+  description: 'The ultimate AI-powered menu recognizer for expats and travelers in China. Snap a photo, translate instantly, and discover authentic Chinese dishes.',
+  keywords: 'Chinese menu translation, food OCR, expat tools China, travel China food, DishDecode, AI food recognizer',
   manifest: '/manifest.json',
+  metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'DishDecode - AI Menu Translation & Discovery',
+    description: 'Snap a photo, translate instantly, and discover authentic Chinese dishes.',
+    url: baseUrl,
+    siteName: 'DishDecode',
+    images: [
+      {
+        url: '/demo/result1.png',
+        width: 800,
+        height: 600,
+        alt: 'DishDecode App Preview',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'DishDecode - AI Menu Translation',
+    description: 'The ultimate AI-powered menu recognizer for expats in China.',
+    images: ['/demo/result1.png'],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'DishDecode',
   },
-  themeColor: '#c83c23',
 };
 
 export default function RootLayout({ children }) {
