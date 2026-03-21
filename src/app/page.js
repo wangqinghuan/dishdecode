@@ -33,6 +33,30 @@ const DEMO_CASES = [
   }
 ];
 
+// 图片压缩工具函数
+const compressImage = (base64Str, maxWidth = 1600) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = (maxWidth / width) * height;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8)); // 强制转为 JPEG，质量 0.8
+    };
+  });
+};
+
 export default function Home() {
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -43,7 +67,7 @@ export default function Home() {
   const [targetLang, setTargetLang] = useState('English');
   const [showLangMenu, setShowLangMenu] = useState(false);
 
-  const currentLangObj = useMemo(() =>
+  const currentLangObj = useMemo(() => 
     LANGUAGES.find(l => l.value === targetLang) || LANGUAGES[0]
   , [targetLang]);
 
@@ -60,7 +84,7 @@ export default function Home() {
 
   const handleDishClick = async (dish) => {
     setSelectedDish(dish);
-    const cacheKey = `detail_vRefined_${dish.nameCN}_${targetLang}`;
+    const cacheKey = `detail_vE2E_${dish.nameCN}_${targetLang}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const p = JSON.parse(cached);
@@ -70,8 +94,16 @@ export default function Home() {
     setDishDetailData({ text: null, images: [], loading: true });
     try {
       const [dRes, iRes] = await Promise.all([
-        fetch('/api/details', { method: 'POST', body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang }) }),
-        fetch('/api/images', { method: 'POST', body: JSON.stringify({ nameCN: dish.nameCN }) })
+        fetch('/api/details', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nameCN: dish.nameCN, nameEN: dish.nameEN, targetLang }) 
+        }),
+        fetch('/api/images', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nameCN: dish.nameCN }) 
+        })
       ]);
       const dData = await dRes.json();
       const iData = await iRes.json();
@@ -82,16 +114,21 @@ export default function Home() {
   };
 
   const startAnalysis = async (imgUrl) => {
+    setError(null);
     setImage(imgUrl);
     setLoading(true);
     setResults({ items: [] });
-    setError(null); // 重置错误状态
+    
+    // 关键修复：发送前先压缩图片，确保符合 API 规范
+    const cleanImg = await compressImage(imgUrl);
+
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imgUrl, targetLang }),
+        body: JSON.stringify({ image: cleanImg, targetLang }),
       });
+      
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -100,7 +137,6 @@ export default function Home() {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        // 检测非法图片错误
         if (buffer.includes('"error": "NOT_A_MENU"')) {
           setError("Oops! This doesn't look like a menu. Please snap a photo of a real menu.");
           setLoading(false);
@@ -118,7 +154,10 @@ export default function Home() {
         });
         if (newItems.length > 0) setResults({ items: newItems });
       }
-    } catch (err) { setError(err.message); } finally { setLoading(false); }
+    } catch (err) { 
+      console.error("API Error:", err);
+      setError("Analysis failed. Please try a different photo."); 
+    } finally { setLoading(false); }
   };
 
   const onFileChange = (e) => {
@@ -198,11 +237,9 @@ export default function Home() {
         .demo-section { margin-top: 48px; padding: 0 20px 80px; }
         .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 14px; font-weight: 600; margin-bottom: 40px; justify-content: center; }
         .demo-stack-vertical { display: flex; flex-direction: column; gap: 64px; align-items: center; }
-        
         .demo-pair { display: flex; align-items: center; gap: 20px; cursor: pointer; transition: all 0.3s; padding: 10px; }
         .demo-pair:active { transform: scale(0.98); }
         .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
-        
         .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; flex-shrink: 0; }
         .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
         .demo-card.before img { filter: sepia(0.2) contrast(0.9); }
@@ -216,9 +253,8 @@ export default function Home() {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .lang-option { padding: 12px 16px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
         .lang-option:hover { background: #fcfaf2; color: #c83c23; }
-
+        
         .error-bar { background: #fff5f5; color: #c53030; padding: 12px 20px; margin: 0 20px 20px; border-radius: 12px; border: 1px solid #feb2b2; font-size: 14px; text-align: center; font-weight: 600; }
-
         .scan-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
         .scan-loader .line { width: 100%; height: 2px; background: #c83c23; position: absolute; top: 0; animation: scanAnim 2s linear infinite; }
         @keyframes scanAnim { 0% { top: 0%; } 100% { top: 100%; } }
@@ -261,7 +297,7 @@ function ResultsList({ results, currency, onReset, onDishClick }) {
                   })}
                 </div>
               </div>
-              <div className="dish-meta"><span className="tag">{dish.flavor}</span></div>
+              <div className="dish-meta"><span className="tag">{dish.flavor}</span><span className="tag">Spiciness: {dish.spiciness}/5</span></div>
             </div>
           );
         })}
@@ -312,9 +348,9 @@ function DishDetail({ dish, data, onClose }) {
               <div className="skeleton-text"><div className="s-line" style={{width: '90%'}}></div><div className="s-line" style={{width: '100%'}}></div><div className="s-line" style={{width: '70%'}}></div></div>
             ) : (
               <div className="slim-details">
-                {parsed?.story && <div className="slim-block"><strong>Background</strong><p>{parsed.story}</p></div>}
-                {parsed?.method && <div className="slim-block"><strong>Method</strong><p>{parsed.method}</p></div>}
-                {parsed?.taste && <div className="slim-block"><strong>Flavor</strong><p>{parsed.taste}</p></div>}
+                {parsed?.story && <div className="slim-block"><strong>Heritage</strong><p>{parsed.story}</p></div>}
+                {parsed?.method && <div className="slim-block"><strong>Creation</strong><p>{parsed.method}</p></div>}
+                {parsed?.taste && <div className="slim-block"><strong>Essence</strong><p>{parsed.taste}</p></div>}
               </div>
             )}
           </div>
