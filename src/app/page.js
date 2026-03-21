@@ -129,10 +129,6 @@ export default function Home() {
       <main className="hero-section">
         {!image ? (
           <>
-            <div className="welcome-text">
-              <h2>Master the Chinese Menu</h2>
-              <p>AI-powered decoder for authentic dining. Snap a photo, order like a local.</p>
-            </div>
             <label className="scan-placeholder">
               <div className="camera-circle"><Camera size={40} color="white" /></div>
               <h2>Scan Menu</h2>
@@ -201,10 +197,6 @@ export default function Home() {
         .preview-container img { width: 100%; height: auto; display: block; filter: brightness(0.7); }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
-
-        .welcome-text { text-align: center; margin-bottom: 32px; padding: 0 20px; }
-        .welcome-text h2 { font-size: 28px; font-weight: 800; color: #1a1a1b; letter-spacing: -0.5px; margin-bottom: 8px; }
-        .welcome-text p { font-size: 15px; color: #949495; line-height: 1.4; max-width: 280px; margin: 0 auto; }
       `}</style>
     </div>
   );
