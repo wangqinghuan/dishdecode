@@ -20,15 +20,15 @@ const DEMO_CASES = [
   {
     id: 1,
     name: 'Spicy Sichuan',
-    menuUrl: 'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?q=80&w=800',
-    resultUrl: 'https://images.unsplash.com/photo-1563245332-692e196666bc?q=80&w=800',
+    menuUrl: '/demo/menu1.png',
+    resultUrl: '/demo/result1.png',
     rotation: '-3deg'
   },
   {
     id: 2,
     name: 'Cantonese Dim Sum',
-    menuUrl: 'https://images.unsplash.com/photo-1582450871972-ed5ca607972c?q=80&w=800',
-    resultUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800',
+    menuUrl: '/demo/menu2.png',
+    resultUrl: '/demo/result2.png',
     rotation: '2deg'
   }
 ];
@@ -43,7 +43,7 @@ export default function Home() {
   const [targetLang, setTargetLang] = useState('English');
   const [showLangMenu, setShowLangMenu] = useState(false);
 
-  const currentLangObj = useMemo(() => 
+  const currentLangObj = useMemo(() =>
     LANGUAGES.find(l => l.value === targetLang) || LANGUAGES[0]
   , [targetLang]);
 
@@ -183,18 +183,18 @@ export default function Home() {
       {selectedDish && <DishDetail dish={selectedDish} data={dishDetailData} onClose={() => setSelectedDish(null)} />}
 
       <style jsx global>{`
-        .demo-section { margin-top: 48px; padding: 0 20px 60px; }
-        .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 13px; font-weight: 600; margin-bottom: 32px; justify-content: center; }
-        .demo-stack-vertical { display: flex; flex-direction: column; gap: 48px; align-items: center; }
+        .demo-section { margin-top: 48px; padding: 0 20px 80px; }
+        .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 14px; font-weight: 600; margin-bottom: 40px; justify-content: center; }
+        .demo-stack-vertical { display: flex; flex-direction: column; gap: 64px; align-items: center; }
         
-        .demo-pair { display: flex; align-items: center; gap: 16px; cursor: pointer; transition: all 0.3s; padding: 10px; }
+        .demo-pair { display: flex; align-items: center; gap: 20px; cursor: pointer; transition: all 0.3s; padding: 10px; }
         .demo-pair:active { transform: scale(0.98); }
-        .demo-arrow { background: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
+        .demo-arrow { background: #fff; width: 36px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
         
-        .demo-card { width: 130px; height: 170px; background: white; padding: 6px; border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position: relative; flex-shrink: 0; }
-        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
-        .demo-card.before img { filter: sepia(0.3) contrast(0.8); }
-        .demo-card .badge { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .demo-card { width: 150px; height: 200px; background: white; padding: 7px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); position: relative; flex-shrink: 0; }
+        .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
+        .demo-card.before img { filter: sepia(0.2) contrast(0.9); }
+        .demo-card .badge { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
         .demo-card.after .badge { background: #c83c23; }
 
         .custom-lang-selector { position: relative; z-index: 50; }
