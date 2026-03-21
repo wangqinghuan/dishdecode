@@ -8,14 +8,19 @@ export async function POST(req) {
     const allKeys = (process.env.GEMINI_API_KEY || "").split(",").map(k => k.trim()).filter(Boolean);
     const shuffledKeys = allKeys.sort(() => Math.random() - 0.5);
 
-    // 平衡深度与速度的提示词
+    // 极其严厉的格式要求，确保双语输出
     const prompt = `
-      Dish: "${nameCN}" (${nameEN}). Provide info in BILINGUAL (${targetLang} & Chinese).
-      1. STORY: 2 sentences about origin/naming.
-      2. METHOD: 2 sentences on how it's cooked.
-      3. TASTE: Key flavor notes.
+      Dish: "${nameCN}" (${nameEN}).
+      You MUST provide information in BOTH ${targetLang} AND Chinese.
       
-      Format: STORY: [Bilingual] | METHOD: [Bilingual] | TASTE: [Bilingual]
+      Format your response EXACTLY like this:
+      STORY: [${targetLang} description] / [中文描述]
+      METHOD: [${targetLang} description] / [中文描述]
+      TASTE: [${targetLang} description] / [中文描述]
+
+      Rules:
+      - 2 short sentences per language for STORY and METHOD.
+      - Use "/" to separate ${targetLang} and Chinese clearly.
     `;
 
     let lastError = null;

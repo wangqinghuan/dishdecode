@@ -286,9 +286,14 @@ function DishDetail({ dish, data, onClose }) {
     const parts = data.text.split(/(STORY:|METHOD:|TASTE:)/i);
     for (let i = 1; i < parts.length; i += 2) {
       const key = parts[i].toLowerCase().replace(':', '');
-      res[key] = parts[i+1]?.split(/(STORY:|METHOD:|TASTE:)/i)[0].trim();
+      const val = parts[i+1]?.split(/(STORY:|METHOD:|TASTE:)/i)[0].trim();
+      if (val) {
+        // 按照 / 分割中英文
+        const [langText, cnText] = val.split('/').map(s => s.trim());
+        res[key] = { lang: langText, cn: cnText };
+      }
     }
-    return (res.story || res.method || res.taste) ? res : { story: data.text };
+    return res;
   }, [data.text]);
 
   return (
@@ -309,9 +314,27 @@ function DishDetail({ dish, data, onClose }) {
               <div className="skeleton-text"><div className="s-line" style={{width: '90%'}}></div><div className="s-line" style={{width: '100%'}}></div><div className="s-line" style={{width: '70%'}}></div></div>
             ) : (
               <div className="slim-details">
-                {parsed?.story && <div className="slim-block"><strong>Heritage</strong><p>{parsed.story}</p></div>}
-                {parsed?.method && <div className="slim-block"><strong>Creation</strong><p>{parsed.method}</p></div>}
-                {parsed?.taste && <div className="slim-block"><strong>Essence</strong><p>{parsed.taste}</p></div>}
+                {parsed?.story && (
+                  <div className="slim-block">
+                    <strong>Heritage</strong>
+                    <p className="p-lang">{parsed.story.lang}</p>
+                    {parsed.story.cn && <p className="p-cn">{parsed.story.cn}</p>}
+                  </div>
+                )}
+                {parsed?.method && (
+                  <div className="slim-block">
+                    <strong>Creation</strong>
+                    <p className="p-lang">{parsed.method.lang}</p>
+                    {parsed.method.cn && <p className="p-cn">{parsed.method.cn}</p>}
+                  </div>
+                )}
+                {parsed?.taste && (
+                  <div className="slim-block">
+                    <strong>Essence</strong>
+                    <p className="p-lang">{parsed.taste.lang}</p>
+                    {parsed.taste.cn && <p className="p-cn">{parsed.taste.cn}</p>}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -332,9 +355,10 @@ function DishDetail({ dish, data, onClose }) {
         .skeleton-text { margin-top: 10px; }
         .s-line { height: 14px; background: #eee; margin-bottom: 12px; border-radius: 4px; }
         .detail-header h2 { font-size: 28px; line-height: 1.1; margin-top: 4px; color: #1a1a1b; }
-        .slim-block { margin-bottom: 18px; }
-        .slim-block strong { font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1px; }
-        .slim-block p { color: #444; font-size: 15px; margin-top: 2px; line-height: 1.6; }
+        .slim-block { margin-bottom: 24px; }
+        .slim-block strong { font-size: 11px; text-transform: uppercase; color: #c83c23; letter-spacing: 1px; display: block; margin-bottom: 6px; }
+        .p-lang { color: #1a1a1b; font-size: 16px; line-height: 1.5; font-weight: 500; }
+        .p-cn { color: #949495; font-size: 14px; margin-top: 4px; line-height: 1.5; }
         .tag { background: white; border: 1px solid #eee; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #666; }
       `}</style>
     </div>
