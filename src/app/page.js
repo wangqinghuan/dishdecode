@@ -132,7 +132,7 @@ export default function Home() {
             <label className="scan-placeholder">
               <div className="camera-circle"><Camera size={40} color="white" /></div>
               <h2>Scan Menu</h2>
-              <p>Snap a photo to decode in {targetLang}</p>
+              <p>Instantly decode names, ingredients, flavors, and the stories behind every dish in {targetLang}.</p>
               <input type="file" accept="image/*" onChange={onFileChange} className="hidden-input" />
             </label>
 

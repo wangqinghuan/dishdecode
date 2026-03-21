@@ -55,7 +55,7 @@ h1, h2, h3 {
 .scan-placeholder { background: white; border-radius: var(--radius-md); padding: 60px 20px; text-align: center; border: var(--border-ink); box-shadow: var(--shadow-paper); cursor: pointer; margin: 0 20px; }
 .camera-circle { background: var(--color-cinnabar); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
 .scan-placeholder h2 { font-size: 24px; margin-bottom: 8px; }
-.scan-placeholder p { color: var(--color-stone); max-width: 220px; margin: 0 auto; }
+.scan-placeholder p { color: var(--color-stone); max-width: 280px; margin: 0 auto; line-height: 1.4; }
 .hidden-input { display: none; }
 .image-preview-container { position: relative; border-radius: var(--radius-md); overflow: hidden; max-height: 200px; margin: 0 20px; }
 .preview-img { width: 100%; object-fit: cover; }
