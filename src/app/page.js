@@ -85,6 +85,7 @@ export default function Home() {
     setImage(imgUrl);
     setLoading(true);
     setResults({ items: [] });
+    setError(null); // 重置错误状态
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -98,6 +99,15 @@ export default function Home() {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
+
+        // 检测非法图片错误
+        if (buffer.includes('"error": "NOT_A_MENU"')) {
+          setError("Oops! This doesn't look like a menu. Please snap a photo of a real menu.");
+          setLoading(false);
+          setImage(null);
+          return;
+        }
+
         const matches = [...buffer.matchAll(/\{[\s\S]*?\}/g)];
         const newItems = [];
         matches.forEach(match => {
@@ -136,6 +146,8 @@ export default function Home() {
           )}
         </div>
       </header>
+
+      {error && <div className="error-bar">{error}</div>}
 
       <main className="hero-section">
         {!image ? (
@@ -204,6 +216,9 @@ export default function Home() {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .lang-option { padding: 12px 16px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
         .lang-option:hover { background: #fcfaf2; color: #c83c23; }
+
+        .error-bar { background: #fff5f5; color: #c53030; padding: 12px 20px; margin: 0 20px 20px; border-radius: 12px; border: 1px solid #feb2b2; font-size: 14px; text-align: center; font-weight: 600; }
+
         .scan-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
         .scan-loader .line { width: 100%; height: 2px; background: #c83c23; position: absolute; top: 0; animation: scanAnim 2s linear infinite; }
         @keyframes scanAnim { 0% { top: 0%; } 100% { top: 100%; } }

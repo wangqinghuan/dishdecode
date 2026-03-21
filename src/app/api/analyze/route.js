@@ -15,11 +15,15 @@ export async function POST(req) {
 
     const prompt = `
       ACT AS A RAW DATA EXTRACTOR. 
+      FIRST: Check if the provided image is a restaurant menu. 
+      IF NOT A MENU: Return ONLY {"error": "NOT_A_MENU"}.
+      
+      IF IT IS A MENU:
       TASK: Convert EVERY visible dish in this image into a JSON list.
       TARGET LANGUAGE: ${targetLang}
       RULES: INCLUDE EVERY ITEM. DO NOT SKIP.
       OUTPUT FORMAT: {"items": [{"nameCN": "Dish Name", "nameEN": "Translated Name", "price": 0, "ingredients": ["${targetLang}|中文"], "flavor": "...", "spiciness": 0}]}
-      Return ONLY the JSON. Start immediately with {"items": [
+      Return ONLY the JSON. Start immediately with {"items": [ or {"error": "
     `;
 
     let lastError = null;
