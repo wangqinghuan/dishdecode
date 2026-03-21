@@ -152,22 +152,20 @@ export default function Home() {
                 <Sparkles size={14} />
                 <span>See how it works</span>
               </div>
-              <div className="demo-scroll">
-                <div className="demo-list">
-                  {DEMO_CASES.map(item => (
-                    <div key={item.id} className="demo-pair" onClick={() => startAnalysis(item.menuUrl)}>
-                      <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }}>
-                        <img src={item.menuUrl} alt="Original Menu" />
-                        <span className="badge">Menu</span>
-                      </div>
-                      <div className="demo-arrow"><ArrowRight size={16} color="#c83c23" /></div>
-                      <div className="demo-card after" style={{ transform: `rotate(calc(${item.rotation} * -0.5))` }}>
-                        <img src={item.resultUrl} alt="Scan Result" />
-                        <span className="badge">Decoded</span>
-                      </div>
+              <div className="demo-stack-vertical">
+                {DEMO_CASES.map(item => (
+                  <div key={item.id} className="demo-pair" onClick={() => startAnalysis(item.menuUrl)}>
+                    <div className="demo-card before" style={{ transform: `rotate(${item.rotation})` }}>
+                      <img src={item.menuUrl} alt="Original Menu" />
+                      <span className="badge">Menu</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="demo-arrow"><ArrowRight size={16} color="#c83c23" /></div>
+                    <div className="demo-card after" style={{ transform: `rotate(calc(${item.rotation} * -0.5))` }}>
+                      <img src={item.resultUrl} alt="Scan Result" />
+                      <span className="badge">Decoded</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </>
@@ -185,20 +183,18 @@ export default function Home() {
       {selectedDish && <DishDetail dish={selectedDish} data={dishDetailData} onClose={() => setSelectedDish(null)} />}
 
       <style jsx global>{`
-        .demo-section { margin-top: 40px; padding: 0 20px; }
-        .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 13px; font-weight: 600; margin-bottom: 24px; justify-content: center; }
-        .demo-scroll { overflow-x: auto; padding: 10px 0 40px; scrollbar-width: none; }
-        .demo-scroll::-webkit-scrollbar { display: none; }
-        .demo-list { display: flex; gap: 40px; padding-left: 20px; width: max-content; }
+        .demo-section { margin-top: 48px; padding: 0 20px 60px; }
+        .demo-label { display: flex; align-items: center; gap: 6px; color: #949495; font-size: 13px; font-weight: 600; margin-bottom: 32px; justify-content: center; }
+        .demo-stack-vertical { display: flex; flex-direction: column; gap: 48px; align-items: center; }
         
-        .demo-pair { display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.3s; }
+        .demo-pair { display: flex; align-items: center; gap: 16px; cursor: pointer; transition: all 0.3s; padding: 10px; }
         .demo-pair:active { transform: scale(0.98); }
-        .demo-arrow { background: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 5; }
+        .demo-arrow { background: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
         
-        .demo-card { width: 120px; height: 160px; background: white; padding: 5px; border-radius: 4px; box-shadow: 0 6px 15px rgba(0,0,0,0.1); position: relative; flex-shrink: 0; transition: transform 0.3s; }
+        .demo-card { width: 130px; height: 170px; background: white; padding: 6px; border-radius: 4px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position: relative; flex-shrink: 0; }
         .demo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
         .demo-card.before img { filter: sepia(0.3) contrast(0.8); }
-        .demo-card .badge { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(26, 26, 27, 0.8); color: white; font-size: 9px; font-weight: bold; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; }
+        .demo-card .badge { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #1a1a1b; color: white; font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
         .demo-card.after .badge { background: #c83c23; }
 
         .custom-lang-selector { position: relative; z-index: 50; }
