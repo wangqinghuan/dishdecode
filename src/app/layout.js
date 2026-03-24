@@ -50,7 +50,8 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <style>{`
-          .header-actions { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; gap: 8px; }
+          .header-actions { position: fixed; bottom: 16px; right: 16px; z-index: 100; display: flex; gap: 12px; align-items: center; }
+          .header-actions .contact-text { color: #999; font-size: 13px; margin-right: 4px; }
           .header-actions a { color: #666; display: flex; align-items: center; gap: 6px; text-decoration: none; font-size: 14px; background: white; padding: 8px 12px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
           .header-actions a:hover { color: #333; }
         `}</style>
@@ -81,6 +82,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <div className="header-actions">
+          <span className="contact-text">有问题请联系</span>
           <a href="mailto:1095193290@qq.com" title="Email">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
